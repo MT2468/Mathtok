@@ -1,1 +1,1314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MathTok</title>
 
+    <!-- Ícones via Font Awesome (CDN) -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+      integrity="sha512-8B2fU5eZDbE9aJgq8l0F4XlC1u1Dq5qk6i1Zp9Yq1nVf5m2Q6xgQ6p0w9pZ+gZ+q0wH6mKqjP9Gg8YQK3h1zVw=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+
+    <style>
+      /* ===== Reset simples e base global ===== */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        background: #111;
+        color: #eee;
+      }
+
+      /* ===== Temas ===== */
+      .dark-theme {
+        background: #111;
+        color: #eee;
+      }
+
+      .light-theme {
+        background: #eee;
+        color: #111;
+      }
+
+      /* ===== Layout geral ===== */
+      #navbar {
+        position: fixed;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        background: #000;
+        border-right: 1px solid #222;
+        z-index: 1000;
+      }
+
+      #navbar.hidden,
+      #feed.hidden {
+        display: none;
+      }
+
+      #feed {
+        padding: 16px;
+      }
+
+      /* ===== Itens do nav ===== */
+      .nav-item {
+        color: #fff;
+        font-size: 20px;
+        opacity: 0.75;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        cursor: pointer;
+      }
+
+      .nav-item:hover,
+      .nav-item.active {
+        opacity: 1;
+        transform: scale(1.05);
+      }
+
+      /* ===== Post placeholder ===== */
+      .post.placeholder {
+        background: #1a1a1a;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        padding: 16px;
+        color: #ccc;
+      }
+
+      /* ===== Toggle de tema ===== */
+      #toggle-theme {
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 20px;
+        opacity: 0.85;
+        cursor: pointer;
+      }
+
+      #toggle-theme:hover {
+        opacity: 1;
+      }
+
+      /* ===== Autenticação ===== */
+      #auth-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.75);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        padding: 24px;
+      }
+
+      .auth-panel {
+        background: #1a1a1a;
+        border: 1px solid #2a2a2a;
+        border-radius: 12px;
+        padding: 24px;
+        width: 100%;
+        max-width: 360px;
+      }
+
+      .auth-panel h2 {
+        margin-bottom: 16px;
+        font-size: 20px;
+      }
+
+      .auth-field {
+        display: block;
+        width: 100%;
+        margin-bottom: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #333;
+        background: #111;
+        color: #eee;
+      }
+
+      .auth-button {
+        width: 100%;
+        padding: 10px 12px;
+        border: none;
+        border-radius: 8px;
+        background: #2f80ed;
+        color: #fff;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      .auth-button:hover {
+        opacity: 0.9;
+      }
+
+      .auth-link {
+        display: block;
+        margin-top: 12px;
+        color: #9cc3ff;
+        text-align: center;
+        cursor: pointer;
+      }
+
+      #auth-message {
+        margin-top: 12px;
+        color: #f5bcbc;
+        min-height: 20px;
+        text-align: center;
+      }
+
+      /* ===== Modal de nova postagem ===== */
+      #new-post-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1500;
+        padding: 24px;
+      }
+
+      #new-post-content {
+        background: #1f1f1f;
+        border: 1px solid #2a2a2a;
+        border-radius: 12px;
+        padding: 24px;
+        width: 100%;
+        max-width: 480px;
+      }
+
+      #new-post-content h2 {
+        margin-bottom: 16px;
+      }
+
+      .post-field,
+      #post-type {
+        width: 100%;
+        margin: 8px 0 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #333;
+        background: #111;
+        color: #eee;
+      }
+
+      .post-action-btn {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: none;
+        background: #2f80ed;
+        color: #fff;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 8px;
+      }
+
+      .post-action-btn.secondary {
+        background: #333;
+      }
+
+      .post-action-btn:hover {
+        opacity: 0.9;
+      }
+
+      /* ===== Posts no feed ===== */
+      .post {
+        background: #222;
+        color: #fff;
+        padding: 12px;
+        margin: 12px 0;
+        border-radius: 8px;
+      }
+
+      .post-header {
+        font-weight: bold;
+        margin-bottom: 6px;
+      }
+
+      .post-image {
+        width: 100%;
+        border-radius: 6px;
+        display: block;
+        margin: 8px 0;
+      }
+
+      .quiz-question-display {
+        font-size: 1.05em;
+        margin: 6px 0;
+      }
+
+      .quiz-options-list {
+        list-style: none;
+        padding-left: 0;
+      }
+
+      .quiz-option-item {
+        background: #333;
+        margin: 4px 0;
+        padding: 6px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease;
+      }
+
+      .quiz-option-item:hover {
+        background: #444;
+        transform: translateY(-1px);
+      }
+
+      .quiz-option-item.correct {
+        background: #2d9d78;
+      }
+
+      .quiz-option-item.incorrect {
+        background: #b0413e;
+      }
+
+      .quiz-feedback {
+        margin-top: 6px;
+        font-size: 0.95em;
+        color: #ddd;
+      }
+
+      .game-replay {
+        margin-top: 8px;
+        background: #111;
+        border: 1px solid #333;
+        border-radius: 6px;
+        display: block;
+        width: 100%;
+      }
+
+      .post-caption {
+        font-style: italic;
+        margin: 6px 0;
+      }
+
+      .post-actions span {
+        margin-right: 10px;
+        cursor: pointer;
+      }
+
+      .post-actions .liked {
+        color: #ff6b6b;
+      }
+
+      .post-actions .saved {
+        color: #ffd166;
+      }
+
+      .comments-section {
+        background: #1a1a1a;
+        border-radius: 8px;
+        padding: 10px;
+        margin-top: 10px;
+        display: none;
+      }
+
+      .comments-list {
+        max-height: 160px;
+        overflow-y: auto;
+        margin-bottom: 8px;
+      }
+
+      .comment {
+        font-size: 0.9em;
+        margin-bottom: 6px;
+      }
+
+      .comment-input {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid #333;
+        background: #111;
+        color: #eee;
+        margin-bottom: 8px;
+      }
+
+      .comment-submit {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: none;
+        background: #2f80ed;
+        color: #fff;
+        cursor: pointer;
+      }
+
+      .comment-submit:hover {
+        opacity: 0.9;
+      }
+
+      .game-status {
+        margin-top: 8px;
+        font-size: 0.9em;
+        color: #ccc;
+      }
+
+      /* ===== Responsividade ===== */
+      @media (max-width: 600px) {
+        #navbar {
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 50px;
+          flex-direction: row;
+          border-right: none;
+          border-top: 1px solid #222;
+        }
+
+        #feed {
+          margin-bottom: 60px;
+        }
+      }
+
+      @media (min-width: 601px) {
+        #navbar {
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: 60px;
+          flex-direction: column;
+          border-top: none;
+          padding-top: 12px;
+        }
+
+        #feed {
+          margin-left: 70px;
+        }
+      }
+    </style>
+  </head>
+  <body class="dark-theme">
+    <!-- ===== Navegação principal ===== -->
+    <nav id="navbar" aria-label="Navegação principal">
+      <button id="toggle-theme" class="nav-item" title="Alternar tema" aria-label="Alternar tema">
+        <i class="fa-solid fa-sun"></i>
+      </button>
+      <i id="nav-home" class="fa-solid fa-house nav-item" title="Home"></i>
+      <i id="nav-friends" class="fa-solid fa-user-friends nav-item" title="Seguindo"></i>
+      <i id="nav-post" class="fa-solid fa-plus-circle nav-item" title="Postar"></i>
+      <i id="nav-inbox" class="fa-solid fa-inbox nav-item" title="Inbox"></i>
+      <i id="nav-profile" class="fa-solid fa-user nav-item" title="Perfil"></i>
+      <i id="logout-btn" class="fa-solid fa-right-from-bracket nav-item" title="Sair"></i>
+    </nav>
+
+    <!-- ===== Feed principal ===== -->
+    <main id="feed" aria-live="polite">
+      <div class="post placeholder">Carregando feed...</div>
+    </main>
+
+    <!-- ===== Modal de nova postagem ===== -->
+    <div id="new-post-modal">
+      <div id="new-post-content">
+        <h2>Criar nova postagem</h2>
+
+        <label for="post-type">Tipo de conteúdo</label>
+        <select id="post-type">
+          <option value="image">Imagem</option>
+          <option value="quiz">Quiz</option>
+          <option value="game">Jogo</option>
+        </select>
+
+        <div id="post-fields">
+          <div id="image-fields">
+            <input class="post-field" type="text" id="image-url" placeholder="URL da imagem (opcional)" />
+            <button class="post-action-btn secondary" id="random-img-btn">
+              Usar imagem aleatória
+            </button>
+          </div>
+
+          <div id="quiz-fields" style="display: none;">
+            <input class="post-field" type="text" id="quiz-question" placeholder="Pergunta do quiz" />
+            <input class="post-field" type="text" id="quiz-option1" placeholder="Opção 1" />
+            <input class="post-field" type="text" id="quiz-option2" placeholder="Opção 2" />
+            <input class="post-field" type="text" id="quiz-option3" placeholder="Opção 3" />
+            <input class="post-field" type="text" id="quiz-option4" placeholder="Opção 4" />
+            <select id="quiz-correct">
+              <option value="0">Opção 1 Correta</option>
+              <option value="1">Opção 2 Correta</option>
+              <option value="2">Opção 3 Correta</option>
+              <option value="3">Opção 4 Correta</option>
+            </select>
+          </div>
+
+          <div id="game-fields" style="display: none;">
+            <button class="post-action-btn secondary" id="start-game-btn">Jogar e Gravar</button>
+            <canvas
+              id="game-canvas"
+              width="400"
+              height="300"
+              style="display: none; background: #000; margin-top: 10px;"
+            ></canvas>
+            <p id="game-instructions" style="display: none;">
+              Use as setas/espaço para jogar. As ações serão gravadas.
+            </p>
+            <button class="post-action-btn secondary" id="stop-game-btn" style="display: none;">
+              Concluir gravação
+            </button>
+          </div>
+        </div>
+
+        <input class="post-field" type="text" id="post-caption" placeholder="Legenda (opcional)" />
+        <button class="post-action-btn" id="publish-btn">Publicar</button>
+        <button class="post-action-btn secondary" id="cancel-post-btn">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- ===== Autenticação ===== -->
+    <div id="auth-container">
+      <div class="auth-panel">
+        <div id="login-form">
+          <h2>Entrar</h2>
+          <input class="auth-field" type="email" id="login-email" placeholder="Email" />
+          <input class="auth-field" type="password" id="login-password" placeholder="Senha" />
+          <button class="auth-button" id="login-btn">Entrar</button>
+          <span id="show-signup" class="auth-link">Criar nova conta</span>
+        </div>
+
+        <div id="signup-form" style="display: none;">
+          <h2>Registrar</h2>
+          <input
+            class="auth-field"
+            type="text"
+            id="signup-username"
+            placeholder="Nome de usuário"
+          />
+          <input class="auth-field" type="email" id="signup-email" placeholder="Email" />
+          <input class="auth-field" type="password" id="signup-password" placeholder="Senha" />
+          <button class="auth-button" id="signup-btn">Registrar</button>
+          <span id="show-login" class="auth-link">Já tem conta? Entrar</span>
+        </div>
+
+        <div id="auth-message"></div>
+      </div>
+    </div>
+
+    <!-- ===== Script (JavaScript futuro) ===== -->
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    <script>
+      // Seleciona o botão de alternância de tema.
+      const toggleBtn = document.getElementById('toggle-theme');
+
+      // Função utilitária para atualizar o ícone conforme o tema atual.
+      const atualizarIconeTema = (temaAtual) => {
+        toggleBtn.innerHTML =
+          temaAtual === 'light'
+            ? '<i class="fa-solid fa-moon"></i>'
+            : '<i class="fa-solid fa-sun"></i>';
+      };
+
+      // Verifica a preferência salva no localStorage e aplica o tema inicial.
+      const temaSalvo = localStorage.getItem('theme');
+      if (temaSalvo === 'light') {
+        document.body.classList.remove('dark-theme');
+        document.body.classList.add('light-theme');
+        atualizarIconeTema('light');
+      } else {
+        document.body.classList.remove('light-theme');
+        document.body.classList.add('dark-theme');
+        atualizarIconeTema('dark');
+      }
+
+      // Listener para alternar entre tema escuro e claro.
+      toggleBtn.addEventListener('click', () => {
+        const estaNoEscuro = document.body.classList.contains('dark-theme');
+
+        if (estaNoEscuro) {
+          document.body.classList.remove('dark-theme');
+          document.body.classList.add('light-theme');
+          localStorage.setItem('theme', 'light');
+          atualizarIconeTema('light');
+        } else {
+          document.body.classList.remove('light-theme');
+          document.body.classList.add('dark-theme');
+          localStorage.setItem('theme', 'dark');
+          atualizarIconeTema('dark');
+        }
+      });
+
+      // ===== Firebase: configuração e inicialização =====
+      const firebaseConfig = {
+        apiKey: 'YOUR_API_KEY',
+        authDomain: 'YOUR_AUTH_DOMAIN',
+        projectId: 'YOUR_PROJECT_ID',
+        storageBucket: 'YOUR_STORAGE_BUCKET',
+        messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
+        appId: 'YOUR_APP_ID',
+      };
+
+      firebase.initializeApp(firebaseConfig);
+      const auth = firebase.auth();
+      const db = firebase.firestore();
+
+      // ===== Seletores da interface de autenticação =====
+      const authContainer = document.getElementById('auth-container');
+      const loginForm = document.getElementById('login-form');
+      const signupForm = document.getElementById('signup-form');
+      const authMessage = document.getElementById('auth-message');
+      const showSignup = document.getElementById('show-signup');
+      const showLogin = document.getElementById('show-login');
+      const navbar = document.getElementById('navbar');
+      const feed = document.getElementById('feed');
+      const logoutBtn = document.getElementById('logout-btn');
+
+      // ===== Seletores do modal de nova postagem =====
+      const newPostModal = document.getElementById('new-post-modal');
+      const newPostContent = document.getElementById('new-post-content');
+      const postTypeSelect = document.getElementById('post-type');
+      const imageFields = document.getElementById('image-fields');
+      const quizFields = document.getElementById('quiz-fields');
+      const gameFields = document.getElementById('game-fields');
+      const randomImgBtn = document.getElementById('random-img-btn');
+      const publishBtn = document.getElementById('publish-btn');
+      const cancelPostBtn = document.getElementById('cancel-post-btn');
+      const navPostBtn = document.getElementById('nav-post');
+      const imageUrlInput = document.getElementById('image-url');
+      const quizQuestionInput = document.getElementById('quiz-question');
+      const quizOptionsInputs = [
+        document.getElementById('quiz-option1'),
+        document.getElementById('quiz-option2'),
+        document.getElementById('quiz-option3'),
+        document.getElementById('quiz-option4'),
+      ];
+      const quizCorrectSelect = document.getElementById('quiz-correct');
+      const postCaptionInput = document.getElementById('post-caption');
+      const startGameBtn = document.getElementById('start-game-btn');
+      const stopGameBtn = document.getElementById('stop-game-btn');
+      const gameCanvas = document.getElementById('game-canvas');
+      const gameInstructions = document.getElementById('game-instructions');
+
+      // ===== Variáveis auxiliares =====
+      let unsubscribePosts = null;
+      let unsubscribeUserDoc = null;
+      let recordedGame = null;
+      // Guarda listeners de comentários por post para evitar duplicidade.
+      const commentsListeners = {};
+      let currentUserFavorites = [];
+      let gameLoopId = null;
+      let gameRecordingStart = null;
+      let gameMoves = [];
+      let gameObstacles = [];
+      let gameDuration = 15000;
+      const gameSpawnPattern = [1500, 3200, 5200, 7000, 9300, 11500, 13500];
+      const gameConfig = {
+        groundY: 240,
+        playerSize: 20,
+        obstacleWidth: 18,
+        obstacleHeight: 30,
+        speed: 2.2,
+        gravity: 0.5,
+        jumpForce: -8.5,
+      };
+
+      // ===== Funções utilitárias =====
+      const limparCamposPost = () => {
+        imageUrlInput.value = '';
+        quizQuestionInput.value = '';
+        quizOptionsInputs.forEach((input) => {
+          input.value = '';
+        });
+        postCaptionInput.value = '';
+        quizCorrectSelect.value = '0';
+        recordedGame = null;
+        gameMoves = [];
+        if (gameCanvas) {
+          const ctx = gameCanvas.getContext('2d');
+          ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+        }
+        if (gameInstructions) {
+          gameInstructions.style.display = 'none';
+        }
+        if (stopGameBtn) {
+          stopGameBtn.style.display = 'none';
+        }
+        const status = document.querySelector('.game-status');
+        if (status && status.parentElement?.id === 'game-fields') {
+          status.remove();
+        }
+      };
+
+      const abrirModalPost = () => {
+        newPostModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      };
+
+      const fecharModalPost = () => {
+        newPostModal.style.display = 'none';
+        document.body.style.overflow = '';
+        limparCamposPost();
+      };
+
+      // ===== Mini-game: gravação =====
+      const prepararJogo = () => {
+        gameObstacles = gameSpawnPattern.map((time) => ({
+          spawnTime: time,
+          x: gameCanvas.width + 20,
+          y: gameConfig.groundY - gameConfig.obstacleHeight,
+          active: false,
+        }));
+      };
+
+      const iniciarGravacaoJogo = () => {
+        if (!gameCanvas) {
+          return;
+        }
+        recordedGame = null;
+        gameMoves = [];
+        gameRecordingStart = performance.now();
+        prepararJogo();
+        gameCanvas.style.display = 'block';
+        gameInstructions.style.display = 'block';
+        stopGameBtn.style.display = 'inline-block';
+
+        const ctx = gameCanvas.getContext('2d');
+        let playerY = gameConfig.groundY;
+        let playerVelocity = 0;
+        let running = true;
+
+        const onJump = () => {
+          if (playerY >= gameConfig.groundY) {
+            playerVelocity = gameConfig.jumpForce;
+            gameMoves.push(Math.floor(performance.now() - gameRecordingStart));
+          }
+        };
+
+        const onKeyDown = (event) => {
+          if (event.code === 'Space' || event.code === 'ArrowUp') {
+            event.preventDefault();
+            onJump();
+          }
+        };
+
+        const onCanvasClick = () => {
+          onJump();
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+        gameCanvas.addEventListener('click', onCanvasClick);
+
+        const loop = () => {
+          if (!running) {
+            return;
+          }
+          const elapsed = performance.now() - gameRecordingStart;
+
+          ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+          ctx.fillStyle = '#222';
+          ctx.fillRect(0, gameConfig.groundY + gameConfig.playerSize, gameCanvas.width, 4);
+
+          playerVelocity += gameConfig.gravity;
+          playerY += playerVelocity;
+          if (playerY >= gameConfig.groundY) {
+            playerY = gameConfig.groundY;
+            playerVelocity = 0;
+          }
+
+          ctx.fillStyle = '#4dd0e1';
+          ctx.fillRect(40, playerY - gameConfig.playerSize, gameConfig.playerSize, gameConfig.playerSize);
+
+          ctx.fillStyle = '#f4a261';
+          gameObstacles.forEach((obstacle) => {
+            if (!obstacle.active && elapsed >= obstacle.spawnTime) {
+              obstacle.active = true;
+              obstacle.x = gameCanvas.width + 20;
+            }
+            if (obstacle.active) {
+              obstacle.x -= gameConfig.speed;
+              ctx.fillRect(
+                obstacle.x,
+                obstacle.y,
+                gameConfig.obstacleWidth,
+                gameConfig.obstacleHeight,
+              );
+            }
+          });
+
+          if (elapsed >= gameDuration) {
+            running = false;
+            finalizarGravacaoJogo();
+            return;
+          }
+
+          gameLoopId = requestAnimationFrame(loop);
+        };
+
+        const finalizarGravacaoJogo = () => {
+          running = false;
+          cancelAnimationFrame(gameLoopId);
+          document.removeEventListener('keydown', onKeyDown);
+          gameCanvas.removeEventListener('click', onCanvasClick);
+          recordedGame = {
+            moves: gameMoves,
+            duration: gameDuration,
+            pattern: gameSpawnPattern,
+          };
+          stopGameBtn.style.display = 'none';
+          const status = document.createElement('div');
+          status.className = 'game-status';
+          status.textContent = 'Gravação concluída! Você já pode publicar.';
+          gameCanvas.insertAdjacentElement('afterend', status);
+        };
+
+        stopGameBtn.onclick = () => {
+          finalizarGravacaoJogo();
+        };
+
+        loop();
+      };
+
+      // ===== Mini-game: replay =====
+      const reproduzirJogo = (canvas, content) => {
+        if (!canvas || !content) {
+          return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        const moves = content.moves || [];
+        const pattern = content.pattern || gameSpawnPattern;
+        const duration = content.duration || gameDuration;
+        const obstacles = pattern.map((time) => ({
+          spawnTime: time,
+          x: canvas.width + 20,
+          y: gameConfig.groundY - gameConfig.obstacleHeight,
+          active: false,
+        }));
+
+        let startTime = performance.now();
+        let playerY = gameConfig.groundY;
+        let playerVelocity = 0;
+        let moveIndex = 0;
+
+        const loop = () => {
+          const elapsed = performance.now() - startTime;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          ctx.fillStyle = '#222';
+          ctx.fillRect(0, gameConfig.groundY + gameConfig.playerSize, canvas.width, 4);
+
+          if (moveIndex < moves.length && elapsed >= moves[moveIndex]) {
+            if (playerY >= gameConfig.groundY) {
+              playerVelocity = gameConfig.jumpForce;
+            }
+            moveIndex += 1;
+          }
+
+          playerVelocity += gameConfig.gravity;
+          playerY += playerVelocity;
+          if (playerY >= gameConfig.groundY) {
+            playerY = gameConfig.groundY;
+            playerVelocity = 0;
+          }
+
+          ctx.fillStyle = '#4dd0e1';
+          ctx.fillRect(40, playerY - gameConfig.playerSize, gameConfig.playerSize, gameConfig.playerSize);
+
+          ctx.fillStyle = '#f4a261';
+          obstacles.forEach((obstacle) => {
+            if (!obstacle.active && elapsed >= obstacle.spawnTime) {
+              obstacle.active = true;
+              obstacle.x = canvas.width + 20;
+            }
+            if (obstacle.active) {
+              obstacle.x -= gameConfig.speed;
+              ctx.fillRect(
+                obstacle.x,
+                obstacle.y,
+                gameConfig.obstacleWidth,
+                gameConfig.obstacleHeight,
+              );
+            }
+          });
+
+          if (elapsed <= duration) {
+            requestAnimationFrame(loop);
+          }
+        };
+
+        loop();
+      };
+
+      // Renderiza o feed a partir do snapshot do Firestore.
+      const renderizarPosts = (snapshot) => {
+        feed.innerHTML = '';
+
+        snapshot.docs.forEach((doc) => {
+          const data = doc.data();
+          const postElem = document.createElement('div');
+          postElem.className = 'post';
+
+          const header = document.createElement('div');
+          header.className = 'post-header';
+          const dataHora = data.timestamp ? data.timestamp.toDate().toLocaleString('pt-BR') : '';
+          header.textContent = `${data.authorName || 'Usuário'} ${dataHora ? '• ' + dataHora : ''}`;
+
+          postElem.appendChild(header);
+
+          if (data.type === 'image') {
+            const img = document.createElement('img');
+            img.className = 'post-image';
+            img.src = data.content;
+            img.alt = data.caption || 'Imagem do post';
+            postElem.appendChild(img);
+          }
+
+          if (data.type === 'quiz') {
+            const question = document.createElement('div');
+            question.className = 'quiz-question-display';
+            question.textContent = data.content?.question || '';
+            postElem.appendChild(question);
+
+            const optionsList = document.createElement('ul');
+            optionsList.className = 'quiz-options-list';
+            (data.content?.options || []).forEach((option) => {
+              const li = document.createElement('li');
+              li.className = 'quiz-option-item';
+              li.textContent = option;
+              optionsList.appendChild(li);
+            });
+            postElem.appendChild(optionsList);
+
+            const feedback = document.createElement('div');
+            feedback.className = 'quiz-feedback';
+            feedback.textContent = '';
+            postElem.appendChild(feedback);
+
+            let respondido = false;
+            const correta = data.content?.correct;
+            const optionsNodes = optionsList.querySelectorAll('.quiz-option-item');
+
+            optionsNodes.forEach((node, index) => {
+              node.addEventListener('click', () => {
+                if (respondido) {
+                  return;
+                }
+                respondido = true;
+
+                if (index === correta) {
+                  node.classList.add('correct');
+                  feedback.textContent = 'Correto!';
+                } else {
+                  node.classList.add('incorrect');
+                  const corretaNode = optionsNodes[correta];
+                  if (corretaNode) {
+                    corretaNode.classList.add('correct');
+                  }
+                  feedback.textContent = 'Errado! Veja a opção correta em verde.';
+                }
+              });
+            });
+          }
+
+          if (data.type === 'game') {
+            const gameCanvasReplay = document.createElement('canvas');
+            gameCanvasReplay.width = 400;
+            gameCanvasReplay.height = 300;
+            gameCanvasReplay.className = 'game-replay';
+            postElem.appendChild(gameCanvasReplay);
+
+            const replayLabel = document.createElement('div');
+            replayLabel.className = 'game-status';
+            replayLabel.textContent = 'Replay do jogo';
+            postElem.appendChild(replayLabel);
+
+            reproduzirJogo(gameCanvasReplay, data.content);
+          }
+
+          if (data.caption) {
+            const caption = document.createElement('div');
+            caption.className = 'post-caption';
+            caption.textContent = data.caption;
+            postElem.appendChild(caption);
+          }
+
+          const actions = document.createElement('div');
+          actions.className = 'post-actions';
+          actions.innerHTML = `
+            <span class="like-btn">❤</span>
+            <span class="likes-count">${data.likes || 0}</span>
+            <span class="comment-btn">💬</span>
+            <span class="comments-count">${data.commentsCount || 0}</span>
+            <span class="share-btn">↗</span>
+            <span class="save-btn">⭐</span>
+          `;
+
+          const likeBtn = actions.querySelector('.like-btn');
+          const likesCount = actions.querySelector('.likes-count');
+          const commentBtn = actions.querySelector('.comment-btn');
+          const shareBtn = actions.querySelector('.share-btn');
+          const saveBtn = actions.querySelector('.save-btn');
+
+          // Ajusta o estado inicial do like com base no likedBy do usuário logado.
+          const uid = auth.currentUser?.uid;
+          const jaCurtiu = uid && data.likedBy && data.likedBy[uid];
+          if (jaCurtiu) {
+            likeBtn.classList.add('liked');
+          }
+
+          // Ajusta o estado inicial do favorito com base no array do usuário.
+          if (currentUserFavorites.includes(doc.id)) {
+            saveBtn.classList.add('saved');
+          }
+
+          // Curtir/Descurtir com controle por usuário usando likedBy.
+          likeBtn.addEventListener('click', () => {
+            if (!uid) {
+              alert('Faça login para curtir.');
+              return;
+            }
+
+            const postRef = db.collection('posts').doc(doc.id);
+            const curtiuAgora = !likeBtn.classList.contains('liked');
+
+            if (curtiuAgora) {
+              likeBtn.classList.add('liked');
+              likesCount.textContent = parseInt(likesCount.textContent, 10) + 1;
+              postRef.update({
+                [`likedBy.${uid}`]: true,
+                likes: firebase.firestore.FieldValue.increment(1),
+              });
+            } else {
+              likeBtn.classList.remove('liked');
+              likesCount.textContent = Math.max(0, parseInt(likesCount.textContent, 10) - 1);
+              postRef.update({
+                [`likedBy.${uid}`]: firebase.firestore.FieldValue.delete(),
+                likes: firebase.firestore.FieldValue.increment(-1),
+              });
+            }
+          });
+
+          // Bloco de comentários (inicialmente oculto).
+          const commentsSection = document.createElement('div');
+          commentsSection.className = 'comments-section';
+          commentsSection.id = `comments-${doc.id}`;
+          commentsSection.innerHTML = `
+            <div class="comments-list"></div>
+            <input type="text" class="comment-input" placeholder="Adicione um comentário..." />
+            <button class="comment-submit">Enviar</button>
+          `;
+
+          const commentsList = commentsSection.querySelector('.comments-list');
+          const commentInput = commentsSection.querySelector('.comment-input');
+          const commentSubmit = commentsSection.querySelector('.comment-submit');
+
+          // Alterna a exibição e inicializa a escuta de comentários em tempo real.
+          const abrirFecharComentarios = () => {
+            const estaAberto = commentsSection.style.display === 'block';
+            commentsSection.style.display = estaAberto ? 'none' : 'block';
+
+            if (!estaAberto && !commentsListeners[doc.id]) {
+              // Escuta a subcoleção "comments" deste post.
+              commentsListeners[doc.id] = db
+                .collection('posts')
+                .doc(doc.id)
+                .collection('comments')
+                .orderBy('timestamp')
+                .onSnapshot((commentsSnapshot) => {
+                  commentsList.innerHTML = '';
+                  commentsSnapshot.docs.forEach((commentDoc) => {
+                    const commentData = commentDoc.data();
+                    const commentDiv = document.createElement('div');
+                    commentDiv.className = 'comment';
+                    commentDiv.innerHTML = `<b>${commentData.authorName || 'Usuário'}:</b> ${
+                      commentData.text || ''
+                    }`;
+                    commentsList.appendChild(commentDiv);
+                  });
+                });
+            }
+          };
+
+          // Clique no ícone de comentários abre/fecha a seção.
+          commentBtn.addEventListener('click', () => {
+            abrirFecharComentarios();
+          });
+
+          // Envia o comentário para a subcoleção e incrementa o contador.
+          commentSubmit.addEventListener('click', () => {
+            const texto = commentInput.value.trim();
+            if (!texto) {
+              return;
+            }
+
+            const postRef = db.collection('posts').doc(doc.id);
+            postRef
+              .collection('comments')
+              .add({
+                authorId: auth.currentUser.uid,
+                authorName: auth.currentUser.displayName || 'User',
+                text: texto,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+              })
+              .then(() => postRef.update({ commentsCount: firebase.firestore.FieldValue.increment(1) }))
+              .then(() => {
+                commentInput.value = '';
+              });
+          });
+
+          shareBtn.addEventListener('click', () => {
+            const link = `${window.location.href.split('#')[0]}#post=${doc.id}`;
+            if (navigator.share) {
+              navigator.share({ title: 'MathTok', url: link }).catch(() => {});
+              return;
+            }
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(link).then(() => {
+                alert('Link copiado!');
+              });
+              return;
+            }
+            alert(`Copie o link: ${link}`);
+          });
+
+          // Salvar/Remover dos favoritos usando o array no documento do usuário.
+          saveBtn.addEventListener('click', () => {
+            if (!uid) {
+              alert('Faça login para salvar.');
+              return;
+            }
+
+            const userRef = db.collection('users').doc(uid);
+            const jaSalvo = currentUserFavorites.includes(doc.id);
+
+            if (jaSalvo) {
+              currentUserFavorites = currentUserFavorites.filter((postId) => postId !== doc.id);
+              saveBtn.classList.remove('saved');
+              userRef.update({
+                favorites: firebase.firestore.FieldValue.arrayRemove(doc.id),
+              });
+            } else {
+              currentUserFavorites = [...currentUserFavorites, doc.id];
+              saveBtn.classList.add('saved');
+              userRef.update({
+                favorites: firebase.firestore.FieldValue.arrayUnion(doc.id),
+              });
+            }
+          });
+
+          postElem.appendChild(actions);
+          postElem.appendChild(commentsSection);
+          feed.appendChild(postElem);
+        });
+      };
+
+      // ===== Controle de estado do usuário =====
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          authContainer.style.display = 'none';
+          navbar.classList.remove('hidden');
+          feed.classList.remove('hidden');
+          authMessage.textContent = '';
+
+          // Escuta posts em tempo real quando o usuário está logado.
+          if (!unsubscribePosts) {
+            unsubscribePosts = db
+              .collection('posts')
+              .orderBy('timestamp', 'desc')
+              .onSnapshot(renderizarPosts);
+          }
+
+          // Escuta o documento do usuário para manter favoritos atualizados.
+          if (!unsubscribeUserDoc) {
+            const userRef = db.collection('users').doc(user.uid);
+            unsubscribeUserDoc = userRef.onSnapshot((docSnapshot) => {
+              if (!docSnapshot.exists) {
+                userRef.set({ username: user.displayName || 'User', favorites: [] });
+                currentUserFavorites = [];
+                return;
+              }
+              const userData = docSnapshot.data();
+              currentUserFavorites = userData?.favorites || [];
+            });
+          }
+        } else {
+          authContainer.style.display = 'flex';
+          navbar.classList.add('hidden');
+          feed.classList.add('hidden');
+          loginForm.style.display = 'block';
+          signupForm.style.display = 'none';
+          authMessage.textContent = '';
+
+          // Para de escutar posts quando o usuário sai.
+          if (unsubscribePosts) {
+            unsubscribePosts();
+            unsubscribePosts = null;
+          }
+
+          if (unsubscribeUserDoc) {
+            unsubscribeUserDoc();
+            unsubscribeUserDoc = null;
+          }
+          currentUserFavorites = [];
+
+          Object.values(commentsListeners).forEach((unsubscribe) => {
+            if (typeof unsubscribe === 'function') {
+              unsubscribe();
+            }
+          });
+          Object.keys(commentsListeners).forEach((key) => {
+            delete commentsListeners[key];
+          });
+        }
+      });
+
+      // ===== Login =====
+      document.getElementById('login-btn').addEventListener('click', () => {
+        const email = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-password').value.trim();
+
+        auth
+          .signInWithEmailAndPassword(email, password)
+          .catch((error) => {
+            authMessage.textContent = error.message;
+          });
+      });
+
+      // ===== Registro =====
+      document.getElementById('signup-btn').addEventListener('click', () => {
+        const username = document.getElementById('signup-username').value.trim();
+        const email = document.getElementById('signup-email').value.trim();
+        const password = document.getElementById('signup-password').value.trim();
+
+        auth
+          .createUserWithEmailAndPassword(email, password)
+          .then(() => auth.currentUser.updateProfile({ displayName: username }))
+          .then(() => {
+            const uid = auth.currentUser.uid;
+            return db.collection('users').doc(uid).set({
+              username: username,
+              email: email,
+              favorites: [],
+            });
+          })
+          .then(() => {
+            authMessage.textContent = 'Conta criada! Entrando...';
+          })
+          .catch((error) => {
+            authMessage.textContent = error.message;
+          });
+      });
+
+      // ===== Alternância entre login e cadastro =====
+      showSignup.addEventListener('click', () => {
+        loginForm.style.display = 'none';
+        signupForm.style.display = 'block';
+        authMessage.textContent = '';
+      });
+
+      showLogin.addEventListener('click', () => {
+        signupForm.style.display = 'none';
+        loginForm.style.display = 'block';
+        authMessage.textContent = '';
+      });
+
+      // ===== Logout =====
+      logoutBtn.addEventListener('click', () => {
+        auth.signOut();
+      });
+
+      // ===== Modal de postagem: abrir/fechar =====
+      navPostBtn.addEventListener('click', () => {
+        abrirModalPost();
+      });
+
+      cancelPostBtn.addEventListener('click', () => {
+        fecharModalPost();
+      });
+
+      newPostModal.addEventListener('click', (event) => {
+        if (!newPostContent.contains(event.target)) {
+          fecharModalPost();
+        }
+      });
+
+      // ===== Alternância de campos por tipo de post =====
+      postTypeSelect.addEventListener('change', () => {
+        const tipo = postTypeSelect.value;
+        imageFields.style.display = tipo === 'image' ? 'block' : 'none';
+        quizFields.style.display = tipo === 'quiz' ? 'block' : 'none';
+        gameFields.style.display = tipo === 'game' ? 'block' : 'none';
+
+        if (tipo === 'game') {
+          gameCanvas.style.display = 'none';
+          gameInstructions.style.display = 'block';
+        }
+      });
+
+      // ===== Imagem aleatória =====
+      randomImgBtn.addEventListener('click', () => {
+        imageUrlInput.value = `https://picsum.photos/500/500?random=${Date.now()}`;
+      });
+
+      // ===== Publicar post =====
+      publishBtn.addEventListener('click', () => {
+        const postType = postTypeSelect.value;
+        const caption = postCaptionInput.value.trim();
+
+        const postData = {
+          authorId: auth.currentUser.uid,
+          authorName: auth.currentUser.displayName || 'User',
+          type: postType,
+          caption: caption,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          likes: 0,
+          commentsCount: 0,
+          likedBy: {},
+        };
+
+        if (postType === 'image') {
+          const url = imageUrlInput.value.trim() || `https://picsum.photos/500/500?random=${Date.now()}`;
+          postData.content = url;
+        }
+
+        if (postType === 'quiz') {
+          const options = quizOptionsInputs.map((input) => input.value.trim());
+          postData.content = {
+            question: quizQuestionInput.value.trim(),
+            options: options,
+            correct: parseInt(quizCorrectSelect.value, 10),
+          };
+        }
+
+        if (postType === 'game') {
+          if (!recordedGame) {
+            alert('Nenhum jogo gravado ainda.');
+            return;
+          }
+          postData.content = recordedGame;
+        }
+
+        db.collection('posts')
+          .add(postData)
+          .then(() => {
+            fecharModalPost();
+          })
+          .catch((error) => {
+            alert(`Erro ao publicar: ${error.message}`);
+          });
+      });
+
+      // ===== Eventos do mini-game =====
+      startGameBtn.addEventListener('click', () => {
+        iniciarGravacaoJogo();
+      });
+    </script>
+  </body>
+</html>
