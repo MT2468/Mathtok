@@ -1,1 +1,2332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MathTok</title>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  >
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
 
+    body.dark-theme {
+      --bg-color: #111;
+      --text-color: #f5f5f5;
+      --surface-color: #1c1c1c;
+      --surface-alt-color: #1a1a1a;
+      --nav-bg: #000;
+      --border-color: #2a2a2a;
+      --muted-text-color: #c9c9c9;
+      --input-bg: #111;
+      --input-border: #333;
+      --secondary-border: #444;
+      --game-bg: #0c0c0c;
+      color-scheme: dark;
+    }
+
+    body.light-theme {
+      --bg-color: #f7f7f7;
+      --text-color: #111;
+      --surface-color: #ffffff;
+      --surface-alt-color: #f0f0f0;
+      --nav-bg: #ffffff;
+      --border-color: #d4d4d4;
+      --muted-text-color: #555;
+      --input-bg: #fff;
+      --input-border: #cfcfcf;
+      --secondary-border: #bbb;
+      --game-bg: #f0f0f0;
+      color-scheme: light;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-color);
+      color: var(--text-color);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+    }
+
+    a,
+    button {
+      color: inherit;
+      font-family: inherit;
+    }
+
+    #authPage {
+      align-items: center;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .auth-card {
+      background: var(--surface-color);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      max-width: 420px;
+      padding: 32px;
+      width: 100%;
+    }
+
+    .auth-card h1 {
+      font-size: 28px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .auth-card p {
+      color: var(--muted-text-color);
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .auth-form {
+      display: none;
+      gap: 12px;
+      flex-direction: column;
+    }
+
+    .auth-form.active {
+      display: flex;
+    }
+
+    .auth-form label {
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .auth-form input {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      color: inherit;
+      padding: 12px;
+    }
+
+    .auth-form button {
+      background: #ff2d55;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      padding: 12px;
+    }
+
+    .toggle-auth {
+      background: transparent;
+      border: none;
+      color: #9ad7ff;
+      cursor: pointer;
+      margin-top: 12px;
+      text-decoration: underline;
+    }
+
+    .error-msg {
+      background: rgba(255, 71, 87, 0.15);
+      border: 1px solid #ff4757;
+      border-radius: 10px;
+      color: #ffb3b8;
+      display: none;
+      font-size: 14px;
+      margin-bottom: 16px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+
+    #mainApp {
+      display: none;
+      min-height: 100vh;
+      padding-bottom: 72px;
+    }
+
+    .page {
+      min-height: calc(100vh - 72px);
+      padding: 24px;
+    }
+
+    #mobileNav {
+      background: var(--nav-bg);
+      border-top: 1px solid var(--border-color);
+      bottom: 0;
+      display: flex;
+      justify-content: space-around;
+      left: 0;
+      padding: 12px 0;
+      position: fixed;
+      width: 100%;
+      z-index: 10;
+    }
+
+    #mobileNav button {
+      background: transparent;
+      border: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #mobileNav i {
+      font-size: 24px;
+    }
+
+    #desktopNav {
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border-color);
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      height: 100vh;
+      left: 0;
+      padding: 24px 16px;
+      position: fixed;
+      top: 0;
+      width: 220px;
+      z-index: 10;
+    }
+
+    #desktopNav button {
+      align-items: center;
+      background: transparent;
+      border: none;
+      display: flex;
+      gap: 12px;
+      padding: 8px 12px;
+      width: 100%;
+    }
+
+    #desktopNav i {
+      font-size: 24px;
+    }
+
+    .content-wrapper {
+      margin-left: 0;
+    }
+
+    @media (min-width: 900px) {
+      #mobileNav {
+        display: none;
+      }
+
+      #desktopNav {
+        display: flex;
+      }
+
+      .content-wrapper {
+        margin-left: 220px;
+      }
+
+      #mainApp {
+        padding-bottom: 0;
+      }
+
+      .page {
+        min-height: 100vh;
+      }
+    }
+
+    .modal {
+      align-items: center;
+      background: rgba(0, 0, 0, 0.75);
+      display: none;
+      inset: 0;
+      justify-content: center;
+      position: fixed;
+      z-index: 20;
+    }
+
+    .modal .modal-content {
+      background: var(--surface-alt-color);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      max-width: 520px;
+      padding: 24px;
+      width: 90%;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .logout-button {
+      background: transparent;
+      border: 1px solid #ff4757;
+      border-radius: 10px;
+      color: #ffb3b8;
+      cursor: pointer;
+      margin-top: 16px;
+      padding: 10px 12px;
+    }
+
+    .modal-header {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .modal-actions button {
+      border-radius: 10px;
+      cursor: pointer;
+      flex: 1;
+      padding: 12px;
+    }
+
+    .primary-button {
+      background: #ff2d55;
+      border: none;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .secondary-button {
+      background: transparent;
+      border: 1px solid var(--secondary-border);
+      color: inherit;
+    }
+
+    .form-section {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .form-section.active {
+      display: flex;
+    }
+
+    .form-section label {
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .form-section input,
+    .form-section textarea,
+    .form-section select {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      color: inherit;
+      padding: 12px;
+    }
+
+    .form-section textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    #imgPreview {
+      border-radius: 12px;
+      display: none;
+      max-height: 320px;
+      object-fit: cover;
+      width: 100%;
+    }
+
+    .modal-note {
+      color: var(--muted-text-color);
+      font-size: 14px;
+    }
+
+    .post {
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 24px 0;
+    }
+
+    .post-content {
+      align-items: center;
+      display: flex;
+      justify-content: center;
+      min-height: 320px;
+      position: relative;
+      width: 100%;
+    }
+
+    .post-image {
+      border-radius: 16px;
+      max-height: 80vh;
+      max-width: 100%;
+      object-fit: cover;
+    }
+
+    #gameCanvas {
+      background: var(--game-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      display: block;
+      height: auto;
+      margin-top: 12px;
+      max-width: 100%;
+      width: 100%;
+    }
+
+    .game-replay-canvas {
+      background: var(--game-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      display: block;
+      height: auto;
+      max-width: 520px;
+      width: 100%;
+    }
+
+    .quiz-container {
+      background: var(--surface-alt-color);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      width: min(520px, 100%);
+    }
+
+    .quiz-container p {
+      font-size: 16px;
+      margin-bottom: 16px;
+    }
+
+    .quiz-option {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      color: inherit;
+      cursor: pointer;
+      margin-bottom: 8px;
+      padding: 12px;
+      text-align: left;
+      width: 100%;
+    }
+
+    .post-info {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .post-author {
+      color: #9ad7ff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .post-actions {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .action-button {
+      align-items: center;
+      background: transparent;
+      border: none;
+      color: #f5f5f5;
+      cursor: pointer;
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .action-button i {
+      font-size: 18px;
+    }
+
+    .action-button.liked i {
+      color: #ff2d55;
+    }
+
+    .action-button.saved i {
+      color: #ffd166;
+    }
+
+    .comments-content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 60vh;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .comment-item {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .comment-reply {
+      margin-left: 16px;
+      margin-top: 6px;
+    }
+
+    .comment-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .avatar {
+      align-items: center;
+      background: var(--border-color);
+      border-radius: 50%;
+      display: flex;
+      font-size: 20px;
+      font-weight: 700;
+      height: 56px;
+      justify-content: center;
+      width: 56px;
+    }
+
+    .profile-stats {
+      display: flex;
+      gap: 16px;
+      margin: 12px 0;
+    }
+
+    .profile-actions {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .profile-actions button {
+      border-radius: 10px;
+      cursor: pointer;
+      padding: 10px 14px;
+    }
+
+    .profile-section {
+      margin-top: 20px;
+    }
+
+    .profile-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .profile-card {
+      background: var(--surface-alt-color);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .friend-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .friend-item {
+      align-items: center;
+      background: var(--surface-alt-color);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      padding: 12px;
+    }
+
+    .notification {
+      align-items: flex-start;
+      background: var(--surface-alt-color);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .theme-toggle {
+      align-items: center;
+      cursor: pointer;
+      display: inline-flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .theme-toggle input {
+      accent-color: #ff2d55;
+    }
+
+    .notification-icon {
+      font-size: 18px;
+      margin-top: 2px;
+    }
+
+    .notification-text em {
+      color: #ffd166;
+      font-style: normal;
+    }
+  </style>
+</head>
+<body>
+  <div id="authPage">
+    <div class="auth-card">
+      <h1>MathTok</h1>
+      <p>Entre para acompanhar desafios e criações matemáticas.</p>
+      <div class="error-msg" id="authError" role="alert" aria-live="polite"></div>
+
+      <form class="auth-form active" id="loginForm">
+        <label for="loginUser">Usuário</label>
+        <input id="loginUser" name="loginUser" type="text" autocomplete="username" required>
+
+        <label for="loginPassword">Senha</label>
+        <input id="loginPassword" name="loginPassword" type="password" autocomplete="current-password" required>
+
+        <button type="submit">Entrar</button>
+        <button class="toggle-auth" type="button" data-target="registerForm">
+          Não tem conta? Registrar
+        </button>
+      </form>
+
+      <form class="auth-form" id="registerForm">
+        <label for="registerUser">Usuário</label>
+        <input id="registerUser" name="registerUser" type="text" autocomplete="username" required>
+
+        <label for="registerPassword">Senha</label>
+        <input id="registerPassword" name="registerPassword" type="password" autocomplete="new-password" required>
+
+        <label for="registerPasswordConfirm">Confirmar senha</label>
+        <input id="registerPasswordConfirm" name="registerPasswordConfirm" type="password" autocomplete="new-password" required>
+
+        <button type="submit">Registrar</button>
+        <button class="toggle-auth" type="button" data-target="loginForm">
+          Já tem conta? Entrar
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="mainApp">
+    <nav id="mobileNav" aria-label="Navegação principal mobile">
+      <button type="button" aria-label="Home">
+        <i class="fa-solid fa-house"></i>
+        <span>Home</span>
+      </button>
+      <button type="button" aria-label="Friends">
+        <i class="fa-solid fa-user-group"></i>
+        <span>Friends</span>
+      </button>
+      <button type="button" aria-label="Create">
+        <i class="fa-solid fa-circle-plus"></i>
+        <span>Create</span>
+      </button>
+      <button type="button" aria-label="Inbox">
+        <i class="fa-regular fa-paper-plane"></i>
+        <span>Inbox</span>
+      </button>
+      <button type="button" aria-label="Profile">
+        <i class="fa-regular fa-user"></i>
+        <span>Profile</span>
+      </button>
+    </nav>
+
+    <nav id="desktopNav" aria-label="Navegação principal desktop">
+      <button type="button" aria-label="Home">
+        <i class="fa-solid fa-house"></i>
+        <span>Home</span>
+      </button>
+      <button type="button" aria-label="Friends">
+        <i class="fa-solid fa-user-group"></i>
+        <span>Friends</span>
+      </button>
+      <button type="button" aria-label="Create">
+        <i class="fa-solid fa-circle-plus"></i>
+        <span>Create</span>
+      </button>
+      <button type="button" aria-label="Inbox">
+        <i class="fa-regular fa-paper-plane"></i>
+        <span>Inbox</span>
+      </button>
+      <button type="button" aria-label="Profile">
+        <i class="fa-regular fa-user"></i>
+        <span>Profile</span>
+      </button>
+    </nav>
+
+    <div class="content-wrapper">
+      <section id="homePage" class="page">
+        <h2>Home</h2>
+      </section>
+      <section id="friendsPage" class="page">
+        <h2>Friends</h2>
+      </section>
+      <section id="inboxPage" class="page">
+        <h2>Inbox</h2>
+      </section>
+      <section id="profilePage" class="page"></section>
+    </div>
+
+    <div id="createModal" class="modal" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Criar publicação</h3>
+          <p class="modal-note">Escolha o tipo de conteúdo que deseja publicar.</p>
+        </div>
+        <div class="error-msg" id="createError" role="alert" aria-live="polite"></div>
+
+        <div id="chooseType" class="form-section active">
+          <button class="primary-button" type="button" data-target="formImage">Imagem</button>
+          <button class="primary-button" type="button" data-target="formQuiz">Quiz</button>
+          <button class="primary-button" type="button" data-target="formGame">Jogo</button>
+        </div>
+
+        <form id="formImage" class="form-section">
+          <div>
+            <label for="imageTheme">Tema da imagem (opcional)</label>
+            <input id="imageTheme" name="imageTheme" type="text" placeholder="Ex.: geometria, ciência">
+          </div>
+          <button class="secondary-button" type="button" id="searchImageButton">Buscar imagem</button>
+          <img id="imgPreview" alt="Pré-visualização da imagem selecionada">
+          <div>
+            <label for="imageCaption">Legenda</label>
+            <textarea id="imageCaption" name="imageCaption" maxlength="200" placeholder="Escreva uma legenda curta"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button class="primary-button" type="submit">Publicar</button>
+            <button class="secondary-button" type="button" data-cancel="modal">Cancelar</button>
+          </div>
+        </form>
+
+        <form id="formQuiz" class="form-section">
+          <div>
+            <label for="quizQuestion">Pergunta</label>
+            <textarea id="quizQuestion" name="quizQuestion" maxlength="200" required></textarea>
+          </div>
+          <div>
+            <label for="quizOptionA">Opção A</label>
+            <input id="quizOptionA" name="quizOptionA" type="text" maxlength="100" required>
+          </div>
+          <div>
+            <label for="quizOptionB">Opção B</label>
+            <input id="quizOptionB" name="quizOptionB" type="text" maxlength="100" required>
+          </div>
+          <div>
+            <label for="quizOptionC">Opção C</label>
+            <input id="quizOptionC" name="quizOptionC" type="text" maxlength="100" required>
+          </div>
+          <div>
+            <label for="quizOptionD">Opção D (opcional)</label>
+            <input id="quizOptionD" name="quizOptionD" type="text" maxlength="100">
+          </div>
+          <div>
+            <label for="quizCorrect">Resposta correta</label>
+            <select id="quizCorrect" name="quizCorrect" required>
+              <option value="">Selecione</option>
+              <option value="0">A</option>
+              <option value="1">B</option>
+              <option value="2">C</option>
+              <option value="3">D</option>
+            </select>
+          </div>
+          <div class="modal-actions">
+            <button class="primary-button" type="submit">Publicar</button>
+            <button class="secondary-button" type="button" data-cancel="modal">Cancelar</button>
+          </div>
+        </form>
+
+        <div id="formGame" class="form-section">
+          <p class="modal-note">O jogo iniciará ao clicar em “Iniciar jogo”.</p>
+          <div class="modal-actions">
+            <button class="primary-button" type="button" id="startGameButton">Iniciar jogo</button>
+            <button class="secondary-button" type="button" data-cancel="modal">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="commentsModal" class="modal" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Comentários</h3>
+          <p class="modal-note" id="commentsSubtitle">Confira o que a comunidade falou.</p>
+        </div>
+        <div class="comments-content" id="commentsContent"></div>
+        <form class="comment-form" id="commentForm">
+          <label for="commentInput">Adicionar comentário</label>
+          <textarea id="commentInput" name="commentInput" maxlength="200" required></textarea>
+          <div class="modal-actions">
+            <button class="primary-button" type="submit">Enviar</button>
+            <button class="secondary-button" type="button" data-cancel="comments">Fechar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="gameOverlay" class="modal" aria-hidden="true">
+      <div class="modal-content">
+        <h3>Minigame</h3>
+        <p class="modal-note">Desvie dos obstáculos e registre sua gameplay.</p>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <p id="gameMessage" class="modal-note"></p>
+        <div class="modal-actions">
+          <button class="primary-button" type="button" id="publishGameButton" disabled>Publicar gameplay</button>
+          <button class="secondary-button" type="button" id="cancelGameButton">Cancelar</button>
+          <button class="secondary-button" type="button" id="exitGame">Sair</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // -----------------------------
+    // Utilidades básicas
+    // -----------------------------
+    const USERS_KEY = "users";
+    const POSTS_KEY = "posts";
+    const NEXT_POST_ID_KEY = "nextPostId";
+    const currentUserKey = "currentUser";
+    const THEME_KEY = "theme";
+    let users = {};
+    let posts = [];
+    let loginFailures = 0;
+    let loginLockTimer = null;
+    const bannedWords = ["palavrão", "ofensa", "idiota", "burro"];
+
+    const authPage = document.getElementById("authPage");
+    const mainApp = document.getElementById("mainApp");
+    const loginForm = document.getElementById("loginForm");
+    const registerForm = document.getElementById("registerForm");
+    const authError = document.getElementById("authError");
+    const profilePage = document.getElementById("profilePage");
+    const createModal = document.getElementById("createModal");
+    const createError = document.getElementById("createError");
+    const chooseType = document.getElementById("chooseType");
+    const formImage = document.getElementById("formImage");
+    const formQuiz = document.getElementById("formQuiz");
+    const formGame = document.getElementById("formGame");
+    const searchImageButton = document.getElementById("searchImageButton");
+    const imgPreview = document.getElementById("imgPreview");
+    const startGameButton = document.getElementById("startGameButton");
+    const homePage = document.getElementById("homePage");
+    const commentsModal = document.getElementById("commentsModal");
+    const commentsContent = document.getElementById("commentsContent");
+    const commentForm = document.getElementById("commentForm");
+    const commentInput = document.getElementById("commentInput");
+    const commentsSubtitle = document.getElementById("commentsSubtitle");
+    const gameOverlay = document.getElementById("gameOverlay");
+    const gameCanvas = document.getElementById("gameCanvas");
+    const gameMessage = document.getElementById("gameMessage");
+    const publishGameButton = document.getElementById("publishGameButton");
+    const cancelGameButton = document.getElementById("cancelGameButton");
+    const exitGameButton = document.getElementById("exitGame");
+    let activePostId = null;
+    let activeGame = null;
+
+    function loadUsers() {
+      const stored = localStorage.getItem(USERS_KEY);
+      users = stored ? JSON.parse(stored) : {};
+      if (!stored) {
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      }
+    }
+
+    function saveUsers() {
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    }
+
+    function loadPosts() {
+      const stored = localStorage.getItem(POSTS_KEY);
+      posts = stored ? JSON.parse(stored) : [];
+      if (!stored) {
+        localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
+      }
+    }
+
+    function savePosts() {
+      localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
+    }
+
+    function getNextPostId() {
+      const stored = localStorage.getItem(NEXT_POST_ID_KEY);
+      const nextId = stored ? Number.parseInt(stored, 10) : 1;
+      localStorage.setItem(NEXT_POST_ID_KEY, String(nextId + 1));
+      return nextId;
+    }
+
+    function showError(message) {
+      authError.textContent = message;
+      authError.style.display = "block";
+    }
+
+    function showCreateError(message) {
+      createError.textContent = message;
+      createError.style.display = "block";
+    }
+
+    function clearCreateError() {
+      createError.textContent = "";
+      createError.style.display = "none";
+    }
+
+    function clearError() {
+      authError.textContent = "";
+      authError.style.display = "none";
+    }
+
+    function toggleForms(targetId) {
+      loginForm.classList.toggle("active", targetId === "loginForm");
+      registerForm.classList.toggle("active", targetId === "registerForm");
+      clearError();
+    }
+
+    function validateUsername(username) {
+      const pattern = /^[a-zA-Z0-9_]{3,15}$/;
+      return pattern.test(username);
+    }
+
+    async function hashPassword(password) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+
+    function enterApp() {
+      authPage.style.display = "none";
+      mainApp.style.display = "block";
+      showPage("homePage");
+    }
+
+    function getCurrentUser() {
+      const currentUser = sessionStorage.getItem(currentUserKey);
+      return currentUser && users[currentUser] ? currentUser : null;
+    }
+
+    function addNotification(targetUser, notification) {
+      if (!users[targetUser]) {
+        return;
+      }
+      users[targetUser].notifications.push({
+        ...notification,
+        timestamp: Date.now(),
+      });
+      saveUsers();
+    }
+
+    function sanitizeText(text) {
+      return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function applyTheme(theme) {
+      const nextTheme = theme === "light" ? "light" : "dark";
+      document.body.classList.remove("light-theme", "dark-theme");
+      document.body.classList.add(`${nextTheme}-theme`);
+      localStorage.setItem(THEME_KEY, nextTheme);
+    }
+
+    function createThemeToggle() {
+      const label = document.createElement("label");
+      label.classList.add("theme-toggle");
+
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = document.body.classList.contains("light-theme");
+
+      const text = document.createElement("span");
+      text.textContent = "Tema claro/escuro";
+
+      input.addEventListener("change", () => {
+        // Alterna o tema e persiste a preferência do usuário.
+        const selectedTheme = input.checked ? "light" : "dark";
+        applyTheme(selectedTheme);
+      });
+
+      label.appendChild(input);
+      label.appendChild(text);
+      return label;
+    }
+
+    function containsBannedWords(text) {
+      const normalized = text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      return bannedWords.some((word) => normalized.includes(word));
+    }
+
+    function validateContent(text) {
+      if (containsBannedWords(text)) {
+        return { ok: false, message: "Evite palavras impróprias no conteúdo." };
+      }
+      return { ok: true };
+    }
+
+    function resetCreateModal() {
+      clearCreateError();
+      formImage.reset();
+      formQuiz.reset();
+      imgPreview.src = "";
+      imgPreview.style.display = "none";
+      setActiveForm("chooseType");
+    }
+
+    function setActiveForm(sectionId) {
+      const sections = [chooseType, formImage, formQuiz, formGame];
+      sections.forEach((section) => {
+        section.classList.toggle("active", section.id === sectionId);
+      });
+    }
+
+    function openCreateModal() {
+      resetCreateModal();
+      createModal.classList.add("active");
+      createModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeCreateModal() {
+      createModal.classList.remove("active");
+      createModal.setAttribute("aria-hidden", "true");
+      resetCreateModal();
+    }
+
+    function renderFeed() {
+      homePage.innerHTML = "";
+
+      const shuffled = [...posts].sort(() => Math.random() - 0.5);
+      if (shuffled.length === 0) {
+        const emptyState = document.createElement("p");
+        emptyState.textContent = "Nenhum post por aqui ainda. Crie o primeiro!";
+        homePage.appendChild(emptyState);
+        return;
+      }
+
+      shuffled.forEach((post) => {
+        const postElement = document.createElement("div");
+        postElement.classList.add("post");
+        postElement.dataset.id = post.id;
+
+        const content = document.createElement("div");
+        content.classList.add("post-content");
+
+        if (post.type === "image") {
+          const img = document.createElement("img");
+          img.src = post.imageUrl;
+          img.alt = post.caption ? `Imagem de ${post.author}` : "Imagem do post";
+          img.classList.add("post-image");
+          img.loading = "lazy";
+          content.appendChild(img);
+        }
+
+        if (post.type === "quiz") {
+          const quizContainer = document.createElement("div");
+          quizContainer.classList.add("quiz-container");
+
+          const question = document.createElement("p");
+          question.textContent = post.question;
+          quizContainer.appendChild(question);
+
+          post.options.forEach((option, index) => {
+            const optionButton = document.createElement("button");
+            optionButton.type = "button";
+            optionButton.classList.add("quiz-option");
+            optionButton.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
+            quizContainer.appendChild(optionButton);
+          });
+
+          content.appendChild(quizContainer);
+        }
+
+        if (post.type === "game") {
+          const canvas = document.createElement("canvas");
+          canvas.width = 320;
+          canvas.height = 160;
+          canvas.classList.add("game-replay-canvas");
+          content.appendChild(canvas);
+          playReplay(post, canvas);
+        }
+
+        const info = document.createElement("div");
+        info.classList.add("post-info");
+
+        const author = document.createElement("span");
+        author.classList.add("post-author");
+        author.textContent = `@${post.author}`;
+        author.addEventListener("click", () => {
+          openProfile(post.author);
+        });
+
+        info.appendChild(author);
+
+        if (post.type !== "quiz" && post.caption) {
+          const caption = document.createElement("p");
+          caption.textContent = post.caption;
+          info.appendChild(caption);
+        }
+
+        const actions = document.createElement("div");
+        actions.classList.add("post-actions");
+
+        const likeButton = document.createElement("button");
+        likeButton.type = "button";
+        likeButton.classList.add("action-button");
+        likeButton.innerHTML = "<i class=\"fa-solid fa-heart\"></i>";
+
+        const likeCount = document.createElement("span");
+        likeCount.textContent = post.likes.length;
+        likeButton.appendChild(likeCount);
+
+        const currentUser = getCurrentUser();
+        if (currentUser && post.likes.includes(currentUser)) {
+          likeButton.classList.add("liked");
+        }
+
+        likeButton.addEventListener("click", () => toggleLike(post.id));
+        actions.appendChild(likeButton);
+
+        const commentButton = document.createElement("button");
+        commentButton.type = "button";
+        commentButton.classList.add("action-button");
+        commentButton.innerHTML = "<i class=\"fa-regular fa-comment\"></i>";
+        const commentCount = document.createElement("span");
+        commentCount.textContent = post.comments.length;
+        commentButton.appendChild(commentCount);
+        commentButton.addEventListener("click", () => openComments(post.id));
+        actions.appendChild(commentButton);
+
+        const shareButton = document.createElement("button");
+        shareButton.type = "button";
+        shareButton.classList.add("action-button");
+        shareButton.innerHTML = "<i class=\"fa-solid fa-share\"></i>";
+        shareButton.addEventListener("click", () => sharePost(post.id));
+        actions.appendChild(shareButton);
+
+        const saveButton = document.createElement("button");
+        saveButton.type = "button";
+        saveButton.classList.add("action-button");
+        saveButton.innerHTML = "<i class=\"fa-regular fa-bookmark\"></i>";
+        if (currentUser && users[currentUser]?.favorites?.includes(post.id)) {
+          saveButton.classList.add("saved");
+        }
+        saveButton.addEventListener("click", () => toggleSave(post.id));
+        actions.appendChild(saveButton);
+
+        postElement.appendChild(content);
+        postElement.appendChild(info);
+        postElement.appendChild(actions);
+        homePage.appendChild(postElement);
+      });
+    }
+
+    function openGameOverlay() {
+      gameOverlay.classList.add("active");
+      gameOverlay.setAttribute("aria-hidden", "false");
+    }
+
+    function closeGameOverlay() {
+      gameOverlay.classList.remove("active");
+      gameOverlay.setAttribute("aria-hidden", "true");
+      gameMessage.textContent = "";
+      publishGameButton.disabled = true;
+    }
+
+    function stopActiveGame() {
+      if (!activeGame) {
+        return;
+      }
+      if (activeGame.animationId) {
+        cancelAnimationFrame(activeGame.animationId);
+      }
+      if (activeGame.handleJump) {
+        window.removeEventListener("keydown", activeGame.handleJump);
+        gameCanvas.removeEventListener("pointerdown", activeGame.handleJump);
+        gameCanvas.removeEventListener("touchstart", activeGame.handleJump);
+      }
+      activeGame = null;
+    }
+
+    function endGame(statusMessage) {
+      if (!activeGame || activeGame.ended) {
+        return;
+      }
+      activeGame.ended = true;
+      activeGame.running = false;
+      activeGame.duration = Math.min(activeGame.elapsed, activeGame.maxDuration);
+      const scoreSeconds = (activeGame.duration / 1000).toFixed(2);
+      gameMessage.textContent = `${statusMessage} Pontuação: ${scoreSeconds}s.`;
+      publishGameButton.disabled = false;
+    }
+
+    function startGame() {
+      closeCreateModal();
+      stopActiveGame();
+      openGameOverlay();
+      gameMessage.textContent = "";
+      publishGameButton.disabled = true;
+      gameCanvas.width = 800;
+      gameCanvas.height = 400;
+
+      const ctx = gameCanvas.getContext("2d");
+      const player = {
+        x: 50,
+        y: 330,
+        size: 30,
+        velocityY: 0,
+      };
+      const groundLevel = 360;
+      const gravity = 0.8;
+      const jumpPower = -12;
+      const speed = 4;
+      const obstacles = [];
+      const inputs = [];
+      const spawnEvents = [];
+      const maxDuration = 30000;
+      const startTime = performance.now();
+      let lastTime = startTime;
+      let nextSpawnTime = startTime + (1500 + Math.random() * 1000);
+
+      activeGame = {
+        ctx,
+        player,
+        groundLevel,
+        gravity,
+        jumpPower,
+        speed,
+        obstacles,
+        inputs,
+        spawnEvents,
+        startTime,
+        lastTime,
+        elapsed: 0,
+        maxDuration,
+        running: true,
+        ended: false,
+        duration: 0,
+        animationId: null,
+        handleJump: null,
+      };
+
+      const handleJump = (event) => {
+        if (!activeGame || !activeGame.running) {
+          return;
+        }
+        if (event.type === "keydown") {
+          if (!["Space", "ArrowUp", "KeyW"].includes(event.code)) {
+            return;
+          }
+          if (event.code === "Space") {
+            event.preventDefault();
+          }
+        }
+        if (player.y >= groundLevel - player.size) {
+          player.velocityY = jumpPower;
+          inputs.push(performance.now() - startTime);
+        }
+      };
+
+      activeGame.handleJump = handleJump;
+      window.addEventListener("keydown", handleJump);
+      gameCanvas.addEventListener("pointerdown", handleJump);
+      gameCanvas.addEventListener("touchstart", handleJump, { passive: true });
+
+      const spawnObstacle = (timeStamp) => {
+        const height = 40 + Math.random() * 60;
+        obstacles.push({
+          x: gameCanvas.width,
+          y: groundLevel - height,
+          width: 20,
+          height,
+        });
+        spawnEvents.push({
+          time: timeStamp - startTime,
+          height,
+        });
+      };
+
+      const update = (now) => {
+        if (!activeGame || !activeGame.running) {
+          return;
+        }
+
+        const elapsed = now - startTime;
+        activeGame.elapsed = elapsed;
+        const frameFactor = (now - lastTime) / 16.67;
+        lastTime = now;
+
+        if (now >= nextSpawnTime) {
+          spawnObstacle(now);
+          nextSpawnTime = now + (1500 + Math.random() * 1000);
+        }
+
+        player.velocityY += gravity * frameFactor;
+        player.y += player.velocityY * frameFactor;
+        if (player.y > groundLevel - player.size) {
+          player.y = groundLevel - player.size;
+          player.velocityY = 0;
+        }
+
+        obstacles.forEach((obstacle) => {
+          obstacle.x -= speed * frameFactor;
+        });
+
+        while (obstacles.length && obstacles[0].x + obstacles[0].width < 0) {
+          obstacles.shift();
+        }
+
+        const playerRect = {
+          x: player.x,
+          y: player.y,
+          width: player.size,
+          height: player.size,
+        };
+
+        const collision = obstacles.some((obstacle) => {
+          return (
+            playerRect.x < obstacle.x + obstacle.width &&
+            playerRect.x + playerRect.width > obstacle.x &&
+            playerRect.y < obstacle.y + obstacle.height &&
+            playerRect.y + playerRect.height > obstacle.y
+          );
+        });
+
+        if (collision) {
+          endGame("Game Over! Você colidiu com um obstáculo.");
+        }
+
+        if (elapsed >= maxDuration) {
+          endGame("Você venceu!");
+        }
+
+        ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+        ctx.fillStyle = "#0a0a0a";
+        ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+        ctx.fillStyle = "#202020";
+        ctx.fillRect(0, groundLevel, gameCanvas.width, gameCanvas.height - groundLevel);
+
+        ctx.fillStyle = "#ff2d55";
+        ctx.fillRect(player.x, player.y, player.size, player.size);
+
+        ctx.fillStyle = "#2ecc71";
+        obstacles.forEach((obstacle) => {
+          ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+        });
+
+        ctx.fillStyle = "#f5f5f5";
+        ctx.font = "16px Segoe UI, sans-serif";
+        ctx.fillText(`Tempo: ${(elapsed / 1000).toFixed(2)}s`, 12, 24);
+
+        if (activeGame.running) {
+          activeGame.animationId = requestAnimationFrame(update);
+        }
+      };
+
+      activeGame.animationId = requestAnimationFrame(update);
+    }
+
+    function playReplay(post, canvas) {
+      const data = post.gameData;
+      if (!data) {
+        return;
+      }
+
+      const ctx = canvas.getContext("2d");
+      const worldWidth = 800;
+      const worldHeight = 400;
+      const groundLevel = 360;
+      const scale = Math.min(canvas.width / worldWidth, canvas.height / worldHeight);
+      const offsetX = (canvas.width - worldWidth * scale) / 2;
+      const offsetY = (canvas.height - worldHeight * scale) / 2;
+
+      const player = {
+        x: 50,
+        y: groundLevel - 30,
+        size: 30,
+        velocityY: 0,
+      };
+      const gravity = 0.8;
+      const jumpPower = -12;
+      const speed = 4;
+      const obstacles = [];
+
+      let inputIndex = 0;
+      let spawnIndex = 0;
+      const inputs = Array.isArray(data.inputs) ? data.inputs : [];
+      const spawnEvents = Array.isArray(data.spawnEvents) ? data.spawnEvents : [];
+      const duration = Number.isFinite(data.duration) ? data.duration : 30000;
+
+      const startTime = performance.now();
+      let lastTime = startTime;
+
+      const spawnObstacle = (height) => {
+        obstacles.push({
+          x: worldWidth,
+          y: groundLevel - height,
+          width: 20,
+          height,
+        });
+      };
+
+      const step = (now) => {
+        const elapsed = now - startTime;
+        const frameFactor = (now - lastTime) / 16.67;
+        lastTime = now;
+
+        while (spawnIndex < spawnEvents.length && spawnEvents[spawnIndex].time <= elapsed) {
+          spawnObstacle(spawnEvents[spawnIndex].height);
+          spawnIndex += 1;
+        }
+
+        while (inputIndex < inputs.length && inputs[inputIndex] <= elapsed) {
+          if (player.y >= groundLevel - player.size) {
+            player.velocityY = jumpPower;
+          }
+          inputIndex += 1;
+        }
+
+        player.velocityY += gravity * frameFactor;
+        player.y += player.velocityY * frameFactor;
+        if (player.y > groundLevel - player.size) {
+          player.y = groundLevel - player.size;
+          player.velocityY = 0;
+        }
+
+        obstacles.forEach((obstacle) => {
+          obstacle.x -= speed * frameFactor;
+        });
+
+        while (obstacles.length && obstacles[0].x + obstacles[0].width < 0) {
+          obstacles.shift();
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#0a0a0a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(scale, scale);
+
+        ctx.fillStyle = "#202020";
+        ctx.fillRect(0, groundLevel, worldWidth, worldHeight - groundLevel);
+
+        ctx.fillStyle = "#ff2d55";
+        ctx.fillRect(player.x, player.y, player.size, player.size);
+
+        ctx.fillStyle = "#2ecc71";
+        obstacles.forEach((obstacle) => {
+          ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+        });
+
+        ctx.restore();
+
+        if (elapsed < duration) {
+          requestAnimationFrame(step);
+        }
+      };
+
+      requestAnimationFrame(step);
+    }
+
+    function toggleLike(postId) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        showCreateError("Faça login para curtir.");
+        return;
+      }
+
+      const post = posts.find((item) => item.id === postId);
+      if (!post) {
+        return;
+      }
+
+      const likeIndex = post.likes.indexOf(currentUser);
+      if (likeIndex === -1) {
+        post.likes.push(currentUser);
+        addNotification(post.author, {
+          type: "like",
+          from: currentUser,
+          postId,
+        });
+      } else {
+        post.likes.splice(likeIndex, 1);
+      }
+
+      savePosts();
+      renderFeed();
+    }
+
+    function openComments(postId) {
+      const post = posts.find((item) => item.id === postId);
+      if (!post) {
+        return;
+      }
+
+      activePostId = postId;
+      commentsSubtitle.textContent = post.type === "quiz" ? post.question : post.caption || "Discussão";
+      commentsContent.innerHTML = "";
+
+      const comments = post.comments || [];
+      const topLevel = comments.filter((comment) => !comment.parentId);
+      topLevel.forEach((comment) => {
+        renderComment(comment, comments);
+      });
+
+      commentsModal.classList.add("active");
+      commentsModal.setAttribute("aria-hidden", "false");
+    }
+
+    function renderComment(comment, allComments, indent = false) {
+      const commentItem = document.createElement("div");
+      commentItem.classList.add("comment-item");
+      if (indent) {
+        commentItem.classList.add("comment-reply");
+      }
+
+      const author = document.createElement("strong");
+      author.textContent = `@${comment.author}: `;
+      author.style.cursor = "pointer";
+      author.addEventListener("click", () => openProfile(comment.author));
+      const text = document.createElement("span");
+      text.textContent = comment.text;
+      commentItem.appendChild(author);
+      commentItem.appendChild(text);
+      commentsContent.appendChild(commentItem);
+
+      const replies = allComments.filter((item) => item.parentId === comment.id);
+      replies.forEach((reply) => renderComment(reply, allComments, true));
+    }
+
+    function postComment(postId, text, parentId = null) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        showCreateError("Faça login para comentar.");
+        return;
+      }
+
+      const trimmed = text.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      const validation = validateContent(trimmed);
+      if (!validation.ok) {
+        alert(validation.message);
+        return;
+      }
+
+      const post = posts.find((item) => item.id === postId);
+      if (!post) {
+        return;
+      }
+
+      const comment = {
+        id: `${postId}-${Date.now()}`,
+        author: currentUser,
+        text: sanitizeText(trimmed).slice(0, 200),
+        parentId,
+        timestamp: Date.now(),
+      };
+
+      post.comments.push(comment);
+      savePosts();
+
+      if (parentId) {
+        const parentComment = post.comments.find((item) => item.id === parentId);
+        if (parentComment) {
+          addNotification(parentComment.author, {
+            type: "reply",
+            from: currentUser,
+            postId,
+          });
+        }
+      } else {
+        addNotification(post.author, {
+          type: "comment",
+          from: currentUser,
+          postId,
+        });
+      }
+
+      commentInput.value = "";
+      openComments(postId);
+      renderFeed();
+    }
+
+    async function sharePost(postId) {
+      const url = `${window.location.origin}${window.location.pathname}#${postId}`;
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "MathTok",
+            text: "Confira este post no MathTok!",
+            url,
+          });
+          return;
+        } catch (error) {
+          console.error("Falha ao compartilhar:", error);
+        }
+      }
+
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+        alert("Link copiado!");
+      }
+    }
+
+    function toggleSave(postId) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        showCreateError("Faça login para salvar.");
+        return;
+      }
+
+      const userData = users[currentUser];
+      if (!userData.favorites) {
+        userData.favorites = [];
+      }
+
+      const index = userData.favorites.indexOf(postId);
+      if (index === -1) {
+        userData.favorites.push(postId);
+      } else {
+        userData.favorites.splice(index, 1);
+      }
+
+      saveUsers();
+      renderFeed();
+    }
+
+    function setVisiblePage(pageId) {
+      const pages = ["homePage", "friendsPage", "inboxPage", "profilePage"];
+      pages.forEach((id) => {
+        const page = document.getElementById(id);
+        page.style.display = id === pageId ? "block" : "none";
+      });
+    }
+
+    function showPage(pageId) {
+      setVisiblePage(pageId);
+
+      if (pageId === "inboxPage") {
+        renderInboxPage();
+      }
+
+      if (pageId === "friendsPage") {
+        renderFriendsPage();
+      }
+
+      if (pageId === "homePage") {
+        renderFeed();
+      }
+    }
+
+    function renderProfileHeader(user, isCurrentUser) {
+      const header = document.createElement("div");
+      header.classList.add("profile-header");
+
+      const avatar = document.createElement("div");
+      avatar.classList.add("avatar");
+      avatar.textContent = user.username.charAt(0).toUpperCase();
+
+      const userInfo = document.createElement("div");
+      const name = document.createElement("h3");
+      name.textContent = `@${user.username}`;
+      const bio = document.createElement("p");
+      bio.textContent = user.bio || "Sem bio ainda.";
+      userInfo.appendChild(name);
+      userInfo.appendChild(bio);
+
+      header.appendChild(avatar);
+      header.appendChild(userInfo);
+
+      const stats = document.createElement("div");
+      stats.classList.add("profile-stats");
+      const followerCount = document.createElement("span");
+      followerCount.textContent = `${user.followers.length} Seguidores`;
+      const followingCount = document.createElement("span");
+      followingCount.textContent = `${user.following.length} Seguindo`;
+      const postCount = document.createElement("span");
+      const userPosts = posts.filter((post) => post.author === user.username);
+      postCount.textContent = `${userPosts.length} Posts`;
+      stats.appendChild(followerCount);
+      stats.appendChild(followingCount);
+      stats.appendChild(postCount);
+
+      const actions = document.createElement("div");
+      actions.classList.add("profile-actions");
+
+      if (isCurrentUser) {
+        const editButton = document.createElement("button");
+        editButton.classList.add("secondary-button");
+        editButton.textContent = "Editar perfil";
+        editButton.addEventListener("click", () => {
+          const newBio = prompt("Atualize sua bio:", user.bio || "");
+          if (newBio !== null) {
+            const validation = validateContent(newBio);
+            if (!validation.ok) {
+              alert(validation.message);
+              return;
+            }
+            user.bio = sanitizeText(newBio).slice(0, 160);
+            saveUsers();
+            openProfile(user.username);
+          }
+        });
+
+        const logoutButton = document.createElement("button");
+        logoutButton.classList.add("logout-button");
+        logoutButton.textContent = "Sair";
+        logoutButton.addEventListener("click", () => {
+          sessionStorage.clear();
+          location.reload();
+        });
+
+        actions.appendChild(editButton);
+        actions.appendChild(logoutButton);
+        actions.appendChild(createThemeToggle());
+      } else {
+        const followButton = document.createElement("button");
+        followButton.classList.add("primary-button");
+        followButton.textContent = user.isFollowing ? "Seguindo" : "Seguir";
+        followButton.addEventListener("click", () => {
+          toggleFollow(user.username);
+        });
+        actions.appendChild(followButton);
+      }
+
+      return { header, stats, actions, userPosts };
+    }
+
+    function renderPostList(list) {
+      const wrapper = document.createElement("div");
+      wrapper.classList.add("profile-list");
+
+      if (list.length === 0) {
+        const empty = document.createElement("p");
+        empty.textContent = "Nenhum post encontrado.";
+        wrapper.appendChild(empty);
+        return wrapper;
+      }
+
+      list.forEach((post) => {
+        const card = document.createElement("div");
+        card.classList.add("profile-card");
+        if (post.type === "image") {
+          const img = document.createElement("img");
+          img.src = post.imageUrl;
+          img.alt = post.caption || "Imagem do post";
+          img.classList.add("post-image");
+          img.loading = "lazy";
+          card.appendChild(img);
+        } else if (post.type === "quiz") {
+          const title = document.createElement("p");
+          title.textContent = post.question;
+          card.appendChild(title);
+        } else {
+          const title = document.createElement("p");
+          title.textContent = post.caption || "Post de jogo";
+          card.appendChild(title);
+        }
+        wrapper.appendChild(card);
+      });
+
+      return wrapper;
+    }
+
+    function openProfile(username) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        return;
+      }
+
+      const target = users[username];
+      if (!target) {
+        return;
+      }
+
+      const targetData = {
+        ...target,
+        username,
+        isFollowing: users[currentUser].following.includes(username),
+      };
+
+      profilePage.innerHTML = "";
+
+      const title = document.createElement("h2");
+      title.textContent = "Profile";
+      profilePage.appendChild(title);
+
+      const { header, stats, actions, userPosts } = renderProfileHeader(
+        targetData,
+        username === currentUser
+      );
+      profilePage.appendChild(header);
+      profilePage.appendChild(stats);
+      profilePage.appendChild(actions);
+
+      const postSection = document.createElement("div");
+      postSection.classList.add("profile-section");
+      const postTitle = document.createElement("h3");
+      postTitle.textContent = "Posts";
+      postSection.appendChild(postTitle);
+      postSection.appendChild(renderPostList(userPosts));
+      profilePage.appendChild(postSection);
+
+      if (username === currentUser) {
+        const favoriteSection = document.createElement("div");
+        favoriteSection.classList.add("profile-section");
+        const favoriteTitle = document.createElement("h3");
+        favoriteTitle.textContent = "Favoritos";
+        favoriteSection.appendChild(favoriteTitle);
+        const favorites = users[currentUser].favorites || [];
+        const favoritePosts = posts.filter((post) => favorites.includes(post.id));
+        favoriteSection.appendChild(renderPostList(favoritePosts));
+        profilePage.appendChild(favoriteSection);
+      }
+
+      setVisiblePage("profilePage");
+    }
+
+    function toggleFollow(targetUsername) {
+      const currentUser = getCurrentUser();
+      if (!currentUser || currentUser === targetUsername) {
+        return;
+      }
+
+      const target = users[targetUsername];
+      if (!target) {
+        return;
+      }
+
+      const following = users[currentUser].following;
+      const followers = target.followers;
+      const index = following.indexOf(targetUsername);
+
+      if (index === -1) {
+        following.push(targetUsername);
+        followers.push(currentUser);
+        addNotification(targetUsername, {
+          type: "follow",
+          from: currentUser,
+        });
+      } else {
+        following.splice(index, 1);
+        const followerIndex = followers.indexOf(currentUser);
+        if (followerIndex !== -1) {
+          followers.splice(followerIndex, 1);
+        }
+      }
+
+      saveUsers();
+      openProfile(targetUsername);
+      renderFriendsPage();
+    }
+
+    function renderFriendsPage() {
+      const currentUser = getCurrentUser();
+      const friendsPage = document.getElementById("friendsPage");
+      friendsPage.innerHTML = "<h2>Friends</h2>";
+
+      if (!currentUser) {
+        return;
+      }
+
+      const currentData = users[currentUser];
+      const following = currentData.following || [];
+
+      if (following.length === 0) {
+        const message = document.createElement("p");
+        message.textContent = "Você ainda não segue ninguém. Siga amigos para ver seus posts aqui.";
+        friendsPage.appendChild(message);
+      } else {
+        const title = document.createElement("h3");
+        title.textContent = "Seguindo";
+        friendsPage.appendChild(title);
+
+        const list = document.createElement("div");
+        list.classList.add("friend-list");
+        following.forEach((username) => {
+          const item = document.createElement("div");
+          item.classList.add("friend-item");
+          const name = document.createElement("span");
+          name.textContent = `@${username}`;
+          name.style.cursor = "pointer";
+          name.addEventListener("click", () => openProfile(username));
+
+          const button = document.createElement("button");
+          button.classList.add("secondary-button");
+          button.textContent = "Seguindo";
+          button.addEventListener("click", () => toggleFollow(username));
+
+          item.appendChild(name);
+          item.appendChild(button);
+          list.appendChild(item);
+        });
+        friendsPage.appendChild(list);
+      }
+
+      const suggestionTitle = document.createElement("h3");
+      suggestionTitle.textContent = "Sugestões";
+      suggestionTitle.style.marginTop = "16px";
+      friendsPage.appendChild(suggestionTitle);
+
+      const suggestionList = document.createElement("div");
+      suggestionList.classList.add("friend-list");
+      Object.keys(users)
+        .filter((username) => username !== currentUser && !following.includes(username))
+        .forEach((username) => {
+          const item = document.createElement("div");
+          item.classList.add("friend-item");
+          const name = document.createElement("span");
+          name.textContent = `@${username}`;
+          name.style.cursor = "pointer";
+          name.addEventListener("click", () => openProfile(username));
+
+          const button = document.createElement("button");
+          button.classList.add("primary-button");
+          button.textContent = "Seguir";
+          button.addEventListener("click", () => toggleFollow(username));
+
+          item.appendChild(name);
+          item.appendChild(button);
+          suggestionList.appendChild(item);
+        });
+
+      if (suggestionList.children.length === 0) {
+        const empty = document.createElement("p");
+        empty.textContent = "Nenhuma sugestão no momento.";
+        suggestionList.appendChild(empty);
+      }
+
+      friendsPage.appendChild(suggestionList);
+    }
+
+    function renderInboxPage() {
+      const inboxPage = document.getElementById("inboxPage");
+      inboxPage.innerHTML = "<h2>Inbox</h2>";
+
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        return;
+      }
+
+      loadUsers();
+      loadPosts();
+      const currentData = users[currentUser];
+      const notifications = currentData.notifications || [];
+
+      if (notifications.length === 0) {
+        const empty = document.createElement("p");
+        empty.textContent = "Sem notificações recentes.";
+        inboxPage.appendChild(empty);
+        return;
+      }
+
+      notifications
+        .slice()
+        .reverse()
+        .forEach((notification) => {
+          const item = document.createElement("div");
+          item.classList.add("notification");
+
+          const icon = document.createElement("i");
+          icon.classList.add("notification-icon");
+
+          const text = document.createElement("div");
+          text.classList.add("notification-text");
+
+          const fromUser = sanitizeText(notification.from || "Alguém");
+          let message = "";
+
+          if (notification.type === "like") {
+            icon.classList.add("fa-solid", "fa-heart");
+            const post = posts.find((postItem) => postItem.id === notification.postId);
+            const caption = sanitizeText(post?.caption || post?.question || "seu post");
+            message = `${fromUser} curtiu seu post: <em>${caption}</em>`;
+            item.addEventListener("click", () => openComments(notification.postId));
+          } else if (notification.type === "comment") {
+            icon.classList.add("fa-regular", "fa-comment");
+            const post = posts.find((postItem) => postItem.id === notification.postId);
+            const caption = sanitizeText(post?.caption || post?.question || "seu post");
+            message = `${fromUser} comentou em seu post: <em>${caption}</em>`;
+            item.addEventListener("click", () => openComments(notification.postId));
+          } else if (notification.type === "reply") {
+            icon.classList.add("fa-regular", "fa-comment-dots");
+            message = `${fromUser} respondeu seu comentário.`;
+            if (notification.postId) {
+              item.addEventListener("click", () => openComments(notification.postId));
+            }
+          } else if (notification.type === "follow") {
+            icon.classList.add("fa-solid", "fa-user-plus");
+            message = `${fromUser} começou a seguir você.`;
+            if (notification.from) {
+              item.addEventListener("click", () => openProfile(notification.from));
+            }
+          }
+
+          text.innerHTML = message;
+          item.appendChild(icon);
+          item.appendChild(text);
+          inboxPage.appendChild(item);
+        });
+    }
+
+    function handleLoginLock() {
+      const submitButton = loginForm.querySelector("button[type='submit']");
+      if (!submitButton) {
+        return;
+      }
+
+      submitButton.disabled = true;
+      submitButton.textContent = "Aguarde 30s...";
+
+      loginLockTimer = setTimeout(() => {
+        loginFailures = 0;
+        submitButton.disabled = false;
+        submitButton.textContent = "Entrar";
+        loginLockTimer = null;
+      }, 30000);
+    }
+
+    // -----------------------------
+    // Inicialização
+    // -----------------------------
+    const storedTheme = localStorage.getItem(THEME_KEY) || "dark";
+    applyTheme(storedTheme);
+
+    loadUsers();
+    loadPosts();
+
+    const storedUser = sessionStorage.getItem(currentUserKey);
+    if (storedUser && users[storedUser]) {
+      enterApp();
+    }
+
+    document.querySelectorAll(".toggle-auth").forEach((button) => {
+      button.addEventListener("click", () => toggleForms(button.dataset.target));
+    });
+
+    document.querySelectorAll("button[aria-label='Create']").forEach((button) => {
+      button.addEventListener("click", openCreateModal);
+    });
+
+    createModal.querySelectorAll("[data-cancel='modal']").forEach((button) => {
+      button.addEventListener("click", closeCreateModal);
+    });
+
+    commentsModal.querySelectorAll("[data-cancel='comments']").forEach((button) => {
+      button.addEventListener("click", () => {
+        commentsModal.classList.remove("active");
+        commentsModal.setAttribute("aria-hidden", "true");
+        activePostId = null;
+      });
+    });
+
+    chooseType.querySelectorAll("button[data-target]").forEach((button) => {
+      button.addEventListener("click", () => {
+        setActiveForm(button.dataset.target);
+        clearCreateError();
+      });
+    });
+
+    searchImageButton.addEventListener("click", () => {
+      clearCreateError();
+      const theme = formImage.imageTheme.value.trim();
+      const encodedTheme = encodeURIComponent(theme || "random");
+      imgPreview.src = `https://source.unsplash.com/600x800/?${encodedTheme}`;
+      imgPreview.style.display = "block";
+    });
+
+    formImage.addEventListener("submit", (event) => {
+      event.preventDefault();
+      clearCreateError();
+
+      const currentUser = sessionStorage.getItem(currentUserKey);
+      if (!currentUser) {
+        showCreateError("Faça login para publicar.");
+        return;
+      }
+
+      if (!imgPreview.src) {
+        showCreateError("Busque uma imagem antes de publicar.");
+        return;
+      }
+
+      const captionRaw = formImage.imageCaption.value.trim();
+      const validation = validateContent(captionRaw);
+      if (!validation.ok) {
+        showCreateError(validation.message);
+        return;
+      }
+
+      const caption = sanitizeText(captionRaw).slice(0, 200);
+      const post = {
+        id: getNextPostId(),
+        type: "image",
+        author: currentUser,
+        caption,
+        imageUrl: imgPreview.src,
+        likes: [],
+        saves: [],
+        comments: [],
+      };
+
+      posts.unshift(post);
+      savePosts();
+      closeCreateModal();
+      renderFeed();
+    });
+
+    formQuiz.addEventListener("submit", (event) => {
+      event.preventDefault();
+      clearCreateError();
+
+      const currentUser = sessionStorage.getItem(currentUserKey);
+      if (!currentUser) {
+        showCreateError("Faça login para publicar.");
+        return;
+      }
+
+      const questionRaw = formQuiz.quizQuestion.value.trim();
+      const optionA = formQuiz.quizOptionA.value.trim();
+      const optionB = formQuiz.quizOptionB.value.trim();
+      const optionC = formQuiz.quizOptionC.value.trim();
+      const optionD = formQuiz.quizOptionD.value.trim();
+      const correctValue = formQuiz.quizCorrect.value;
+
+      if (!questionRaw || !optionA || !optionB || !optionC) {
+        showCreateError("Preencha pergunta e opções obrigatórias.");
+        return;
+      }
+
+      if (correctValue === "") {
+        showCreateError("Selecione a resposta correta.");
+        return;
+      }
+
+      const validation = validateContent(questionRaw);
+      if (!validation.ok) {
+        showCreateError(validation.message);
+        return;
+      }
+
+      const optionsRaw = [optionA, optionB, optionC, optionD].filter(Boolean);
+      for (const option of optionsRaw) {
+        const optionValidation = validateContent(option);
+        if (!optionValidation.ok) {
+          showCreateError(optionValidation.message);
+          return;
+        }
+      }
+      if (Number.parseInt(correctValue, 10) >= optionsRaw.length) {
+        showCreateError("A opção correta não existe.");
+        return;
+      }
+
+      const sanitizedOptions = optionsRaw.map((option) => sanitizeText(option).slice(0, 100));
+      const post = {
+        id: getNextPostId(),
+        type: "quiz",
+        author: currentUser,
+        question: sanitizeText(questionRaw).slice(0, 200),
+        options: sanitizedOptions,
+        correctIndex: Number.parseInt(correctValue, 10),
+        likes: [],
+        saves: [],
+        comments: [],
+      };
+
+      posts.unshift(post);
+      savePosts();
+      closeCreateModal();
+      renderFeed();
+    });
+
+    startGameButton.addEventListener("click", startGame);
+
+    publishGameButton.addEventListener("click", () => {
+      if (!activeGame || !activeGame.ended) {
+        return;
+      }
+
+      const currentUser = sessionStorage.getItem(currentUserKey);
+      if (!currentUser) {
+        showCreateError("Faça login para publicar.");
+        return;
+      }
+
+      const scoreSeconds = (activeGame.duration / 1000).toFixed(2);
+      const post = {
+        id: getNextPostId(),
+        type: "game",
+        author: currentUser,
+        caption: `Gameplay - ${scoreSeconds}s`,
+        gameData: {
+          inputs: activeGame.inputs,
+          spawnEvents: activeGame.spawnEvents,
+          duration: activeGame.duration,
+        },
+        likes: [],
+        saves: [],
+        comments: [],
+      };
+
+      posts.unshift(post);
+      savePosts();
+      stopActiveGame();
+      closeGameOverlay();
+      renderFeed();
+    });
+
+    cancelGameButton.addEventListener("click", () => {
+      stopActiveGame();
+      closeGameOverlay();
+    });
+
+    exitGameButton.addEventListener("click", () => {
+      stopActiveGame();
+      closeGameOverlay();
+    });
+
+    commentForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!activePostId) {
+        return;
+      }
+      postComment(activePostId, commentInput.value);
+    });
+
+    document.querySelectorAll("button[aria-label='Profile']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+          openProfile(currentUser);
+        }
+      });
+    });
+
+    document.querySelectorAll("button[aria-label='Friends']").forEach((button) => {
+      button.addEventListener("click", () => showPage("friendsPage"));
+    });
+
+    document.querySelectorAll("button[aria-label='Home']").forEach((button) => {
+      button.addEventListener("click", () => showPage("homePage"));
+    });
+
+    document.querySelectorAll("button[aria-label='Inbox']").forEach((button) => {
+      button.addEventListener("click", () => showPage("inboxPage"));
+    });
+
+    // -----------------------------
+    // Registro
+    // -----------------------------
+    registerForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearError();
+
+      const username = registerForm.registerUser.value.trim();
+      const password = registerForm.registerPassword.value;
+      const passwordConfirm = registerForm.registerPasswordConfirm.value;
+
+      if (!validateUsername(username)) {
+        showError("Usuário inválido. Use 3-15 caracteres: letras, números ou _.");
+        return;
+      }
+
+      if (users[username]) {
+        showError("Esse usuário já existe. Escolha outro.");
+        return;
+      }
+
+      if (password.length < 6) {
+        showError("A senha precisa ter pelo menos 6 caracteres.");
+        return;
+      }
+
+      if (password !== passwordConfirm) {
+        showError("As senhas não conferem.");
+        return;
+      }
+
+      const passwordHash = await hashPassword(password);
+      users[username] = {
+        passwordHash,
+        bio: "",
+        followers: [],
+        following: [],
+        posts: [],
+        favorites: [],
+        notifications: [],
+      };
+      saveUsers();
+      registerForm.reset();
+      toggleForms("loginForm");
+      showError("Conta criada! Faça login para continuar.");
+    });
+
+    // -----------------------------
+    // Login
+    // -----------------------------
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearError();
+
+      if (loginFailures >= 5) {
+        showError("Muitas tentativas. Aguarde 30 segundos.");
+        if (!loginLockTimer) {
+          handleLoginLock();
+        }
+        return;
+      }
+
+      const username = loginForm.loginUser.value.trim();
+      const password = loginForm.loginPassword.value;
+
+      if (!users[username]) {
+        loginFailures += 1;
+        showError("Credenciais inválidas.");
+        if (loginFailures >= 5) {
+          handleLoginLock();
+        }
+        return;
+      }
+
+      const passwordHash = await hashPassword(password);
+      if (users[username].passwordHash !== passwordHash) {
+        loginFailures += 1;
+        showError("Credenciais inválidas.");
+        if (loginFailures >= 5) {
+          handleLoginLock();
+        }
+        return;
+      }
+
+      loginFailures = 0;
+      sessionStorage.setItem(currentUserKey, username);
+      loginForm.reset();
+      enterApp();
+    });
+
+  </script>
+</body>
+</html>
