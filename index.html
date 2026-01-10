@@ -582,6 +582,28 @@
       accent-color: #ff2d55;
     }
 
+    .trending-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .hashtag-badge {
+      background: var(--surface-alt-color);
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 6px 12px;
+    }
+
+    .hashtag-count {
+      color: var(--muted-text-color);
+      font-size: 12px;
+      margin-left: 6px;
+    }
+
     .notification-icon {
       font-size: 18px;
       margin-top: 2px;
@@ -1950,9 +1972,66 @@
       }
 
       discoverContent.innerHTML = "";
+      const tagTitle = document.createElement("h3");
+      tagTitle.textContent = "Hashtags em alta";
+
+      const tagsContainer = document.createElement("div");
+      tagsContainer.classList.add("trending-tags");
+
+      const hashtagCounts = new Map();
+      const sourceTexts = posts.flatMap((post) => [post.caption, post.question]);
+
+      sourceTexts.forEach((text) => {
+        if (!text) {
+          return;
+        }
+        const matches = text.match(/#[\p{L}\p{N}_-]+/gu) || [];
+        matches.forEach((tag) => {
+          const normalized = tag.slice(1).toLowerCase();
+          if (!normalized) {
+            return;
+          }
+          hashtagCounts.set(normalized, (hashtagCounts.get(normalized) || 0) + 1);
+        });
+      });
+
+      const topTags = Array.from(hashtagCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+      if (topTags.length === 0) {
+        const emptyTag = document.createElement("p");
+        emptyTag.textContent = "Nenhuma hashtag em alta no momento.";
+        tagsContainer.appendChild(emptyTag);
+      } else {
+        topTags.forEach(([tag, count]) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.classList.add("hashtag-badge");
+          button.textContent = `#${tag}`;
+          button.setAttribute("aria-label", `Filtrar posts pela hashtag ${tag}`);
+
+          const countSpan = document.createElement("span");
+          countSpan.classList.add("hashtag-count");
+          countSpan.textContent = `(${count})`;
+          button.appendChild(countSpan);
+
+          button.addEventListener("click", () => filterByHashtag(tag));
+          tagsContainer.appendChild(button);
+        });
+      }
+
       const hint = document.createElement("p");
       hint.textContent = "Em breve você verá tendências e sugestões por aqui.";
+
+      discoverContent.appendChild(tagTitle);
+      discoverContent.appendChild(tagsContainer);
       discoverContent.appendChild(hint);
+    }
+
+    function filterByHashtag(tag) {
+      // Placeholder: em breve vamos filtrar os posts por hashtag.
+      console.log(`Filtro de hashtag selecionado: ${tag}`);
     }
 
     function renderInboxPage() {
