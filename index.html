@@ -832,9 +832,104 @@
       margin-top: 6px;
     }
 
+    .message-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .conversation-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .conversation-item {
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      cursor: pointer;
+      padding: 12px;
+    }
+
+    .conversation-item:hover {
+      background: var(--surface-alt-color);
+    }
+
+    .chat-window {
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      min-height: 320px;
+    }
+
+    .chat-header {
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      gap: 12px;
+      padding: 8px 12px;
+    }
+
+    #backToList {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .chat-form {
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px;
+    }
+
+    .chat-form input {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 999px;
+      color: inherit;
+      flex: 1;
+      padding: 10px 14px;
+    }
+
+    .chat-form button {
+      background: #ff2d55;
+      border: none;
+      border-radius: 999px;
+      color: #fff;
+      cursor: pointer;
+      padding: 10px 18px;
+    }
+
     @media (min-width: 900px) {
       .discover-posts {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .message-container {
+        flex-direction: row;
+      }
+
+      .conversation-list {
+        border-right: 1px solid var(--border-color);
+        padding-right: 16px;
+        width: 30%;
+      }
+
+      .chat-window {
+        width: 70%;
+      }
+
+      #backToList {
+        display: none;
       }
     }
 
@@ -923,6 +1018,10 @@
         <i class="fa-regular fa-paper-plane"></i>
         <span>Inbox</span>
       </button>
+      <button type="button" aria-label="Messages" title="Mensagens diretas">
+        <i class="fa-regular fa-envelope"></i>
+        <span>Messages</span>
+      </button>
       <button type="button" aria-label="Profile" title="Perfil (tecla P)">
         <i class="fa-regular fa-user"></i>
         <span>Profile</span>
@@ -950,6 +1049,10 @@
         <i class="fa-regular fa-paper-plane"></i>
         <span>Inbox</span>
       </button>
+      <button type="button" aria-label="Messages" title="Mensagens diretas">
+        <i class="fa-regular fa-envelope"></i>
+        <span>Messages</span>
+      </button>
       <button type="button" aria-label="Profile" title="Perfil (tecla P)">
         <i class="fa-regular fa-user"></i>
         <span>Profile</span>
@@ -969,6 +1072,28 @@
       </section>
       <section id="inboxPage" class="page">
         <h2>Inbox</h2>
+      </section>
+      <section id="messagesPage" class="page">
+        <h2>Mensagens</h2>
+        <div class="message-container">
+          <div id="conversationList" class="conversation-list"></div>
+          <div id="chatWindow" class="chat-window" style="display: none;">
+            <div class="chat-header">
+              <button type="button" id="backToList" aria-label="Voltar para conversas">←</button>
+              <h3 id="chatWith"></h3>
+            </div>
+            <div id="chatMessages" class="chat-messages"></div>
+            <form id="chatForm" class="chat-form">
+              <input
+                type="text"
+                id="chatInput"
+                placeholder="Escreva uma mensagem..."
+                autocomplete="off"
+              >
+              <button type="submit">Enviar</button>
+            </form>
+          </div>
+        </div>
       </section>
       <section id="profilePage" class="page"></section>
       <section id="settingsPage" class="page">
@@ -1238,11 +1363,19 @@
     const settingsPage = document.getElementById("settingsPage");
     const settingsForm = document.getElementById("settingsForm");
     const settingsBackButton = document.getElementById("settingsBackButton");
+    const conversationList = document.getElementById("conversationList");
+    const chatWindow = document.getElementById("chatWindow");
+    const chatWith = document.getElementById("chatWith");
+    const chatMessages = document.getElementById("chatMessages");
+    const chatForm = document.getElementById("chatForm");
+    const chatInput = document.getElementById("chatInput");
+    const backToList = document.getElementById("backToList");
     let activePostId = null;
     let activeGame = null;
     let discoverFilter = "all";
     let discoverSearchQuery = "";
     let lastFocusedElement = null;
+    let activeChatUser = null;
 
     function loadUsers() {
       const stored = localStorage.getItem(USERS_KEY);
@@ -1255,7 +1388,8 @@
       Object.values(users).forEach((user) => {
         const verificationUpdated = normalizeUserVerification(user);
         const answeredUpdated = normalizeUserAnswered(user);
-        if (verificationUpdated || answeredUpdated) {
+        const messagesUpdated = normalizeUserMessages(user);
+        if (verificationUpdated || answeredUpdated || messagesUpdated) {
           updated = true;
         }
       });
@@ -2219,6 +2353,78 @@
       alert("Post denunciado. Ele não aparecerá mais para você.");
     }
 
+    function renderMessagesPage() {
+      if (!conversationList || !chatWindow || !chatWith || !chatMessages) {
+        return;
+      }
+
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        conversationList.textContent = "Faça login para usar mensagens.";
+        chatWindow.style.display = "none";
+        return;
+      }
+
+      const userData = users[currentUser];
+      if (!userData) {
+        return;
+      }
+
+      normalizeUserMessages(userData);
+      conversationList.innerHTML = "";
+      chatWindow.style.display = "none";
+      activeChatUser = null;
+      conversationList.style.display = "flex";
+
+      const following = userData.following || [];
+      if (following.length === 0) {
+        conversationList.textContent = "Você não segue ninguém para conversar.";
+        return;
+      }
+
+      following.forEach((username) => {
+        const item = document.createElement("div");
+        item.classList.add("conversation-item");
+        item.textContent = `@${username}`;
+        item.addEventListener("click", () => openChat(username));
+        conversationList.appendChild(item);
+      });
+    }
+
+    function openChat(username) {
+      const currentUser = getCurrentUser();
+      if (!currentUser || !chatWindow || !conversationList) {
+        return;
+      }
+
+      activeChatUser = username;
+      chatWith.textContent = `@${username}`;
+      renderChatMessages(username);
+      chatWindow.style.display = "flex";
+      conversationList.style.display = window.innerWidth < 600 ? "none" : "flex";
+      chatInput?.focus();
+    }
+
+    function renderChatMessages(username) {
+      if (!chatMessages) {
+        return;
+      }
+      chatMessages.innerHTML = "";
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        return;
+      }
+
+      const userData = users[currentUser];
+      normalizeUserMessages(userData);
+      const conversation = userData.conversations[username] || [];
+      if (conversation.length === 0) {
+        const empty = document.createElement("p");
+        empty.textContent = "Nenhuma mensagem ainda. Inicie a conversa!";
+        chatMessages.appendChild(empty);
+      }
+    }
+
     function openComments(postId) {
       const post = posts.find((item) => item.id === postId);
       if (!post) {
@@ -2384,6 +2590,7 @@
         "discoverPage",
         "friendsPage",
         "inboxPage",
+        "messagesPage",
         "profilePage",
         "settingsPage",
       ];
@@ -2398,6 +2605,10 @@
 
       if (pageId === "inboxPage") {
         renderInboxPage();
+      }
+
+      if (pageId === "messagesPage") {
+        renderMessagesPage();
       }
 
       if (pageId === "discoverPage") {
@@ -2435,6 +2646,14 @@
       }
       normalizeUserPoints(user);
       normalizeUserVerification(user);
+    }
+
+    function normalizeUserMessages(user) {
+      if (!user.conversations || typeof user.conversations !== "object") {
+        user.conversations = {};
+        return true;
+      }
+      return false;
     }
 
     function normalizeUserAnswered(user) {
@@ -3754,6 +3973,28 @@
       button.addEventListener("click", () => showPage("inboxPage"));
     });
 
+    if (backToList) {
+      backToList.addEventListener("click", () => {
+        if (!conversationList || !chatWindow) {
+          return;
+        }
+        chatWindow.style.display = "none";
+        conversationList.style.display = "flex";
+        activeChatUser = null;
+      });
+    }
+
+    if (chatForm) {
+      chatForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        // Envio de mensagens será implementado no próximo passo.
+      });
+    }
+
+    document.querySelectorAll("button[aria-label='Messages']").forEach((button) => {
+      button.addEventListener("click", () => showPage("messagesPage"));
+    });
+
     document.addEventListener("keydown", (event) => {
       const target = event.target;
       const tagName = target?.tagName;
@@ -3854,6 +4095,7 @@
         notifications: [],
         answered: {},
         reported: [],
+        conversations: {},
       };
       saveUsers();
       registerForm.reset();
