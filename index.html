@@ -732,6 +732,20 @@
       color: #ffd166;
       font-style: normal;
     }
+
+    .expire-tag {
+      align-items: center;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 999px;
+      color: #fff;
+      display: inline-flex;
+      font-size: 12px;
+      gap: 6px;
+      padding: 4px 10px;
+      position: absolute;
+      right: 16px;
+      top: 16px;
+    }
   </style>
 </head>
 <body>
@@ -915,6 +929,15 @@
             <label for="imageCaption">Legenda</label>
             <textarea id="imageCaption" name="imageCaption" maxlength="200" placeholder="Escreva uma legenda curta"></textarea>
           </div>
+          <div>
+            <label for="postDurationImage">Duração do post</label>
+            <select id="postDurationImage" name="postDuration">
+              <option value="0">Permanente</option>
+              <option value="6">6 horas</option>
+              <option value="24">24 horas</option>
+              <option value="72">3 dias</option>
+            </select>
+          </div>
           <div class="modal-actions">
             <button class="primary-button" type="submit">Publicar</button>
             <button class="secondary-button" type="button" data-cancel="modal">Cancelar</button>
@@ -952,6 +975,15 @@
               <option value="3">D</option>
             </select>
           </div>
+          <div>
+            <label for="postDurationQuiz">Duração do post</label>
+            <select id="postDurationQuiz" name="postDuration">
+              <option value="0">Permanente</option>
+              <option value="6">6 horas</option>
+              <option value="24">24 horas</option>
+              <option value="72">3 dias</option>
+            </select>
+          </div>
           <div class="modal-actions">
             <button class="primary-button" type="submit">Publicar</button>
             <button class="secondary-button" type="button" data-cancel="modal">Cancelar</button>
@@ -960,6 +992,15 @@
 
         <div id="formGame" class="form-section">
           <p class="modal-note">O jogo iniciará ao clicar em “Iniciar jogo”.</p>
+          <div>
+            <label for="postDurationGame">Duração do post</label>
+            <select id="postDurationGame" name="postDuration">
+              <option value="0">Permanente</option>
+              <option value="6">6 horas</option>
+              <option value="24">24 horas</option>
+              <option value="72">3 dias</option>
+            </select>
+          </div>
           <div class="modal-actions">
             <button class="primary-button" type="button" id="startGameButton">Iniciar jogo</button>
             <button class="secondary-button" type="button" data-cancel="modal">Cancelar</button>
@@ -1075,6 +1116,36 @@
 
     function savePosts() {
       localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
+    }
+
+    function removeExpiredPosts() {
+      const now = Date.now();
+      const expiredIds = posts
+        .filter((post) => post.expiresAt && now >= post.expiresAt)
+        .map((post) => post.id);
+
+      if (expiredIds.length === 0) {
+        return;
+      }
+
+      posts = posts.filter((post) => !expiredIds.includes(post.id));
+
+      Object.values(users).forEach((user) => {
+        if (!user.favorites) {
+          return;
+        }
+        user.favorites = user.favorites.filter((postId) => !expiredIds.includes(postId));
+      });
+
+      savePosts();
+      saveUsers();
+    }
+
+    function getExpirationTimestamp(hours) {
+      if (!hours || Number.isNaN(hours) || hours <= 0) {
+        return null;
+      }
+      return Date.now() + hours * 60 * 60 * 1000;
     }
 
     function getNextPostId() {
@@ -1259,6 +1330,7 @@
     }
 
     function renderFeed() {
+      removeExpiredPosts();
       homePage.innerHTML = "";
 
       const currentUser = getCurrentUser();
@@ -1289,6 +1361,13 @@
         const postElement = document.createElement("div");
         postElement.classList.add("post");
         postElement.dataset.id = post.id;
+
+        if (post.expiresAt) {
+          const expireTag = document.createElement("span");
+          expireTag.classList.add("expire-tag");
+          expireTag.innerHTML = "<i class=\"fa-regular fa-clock\"></i> Temporário";
+          postElement.appendChild(expireTag);
+        }
 
         const content = document.createElement("div");
         content.classList.add("post-content");
@@ -2151,6 +2230,7 @@
     }
 
     function openProfile(username) {
+      removeExpiredPosts();
       const currentUser = getCurrentUser();
       if (!currentUser) {
         return;
@@ -2336,6 +2416,7 @@
         return;
       }
 
+      removeExpiredPosts();
       discoverContent.innerHTML = "";
       const searchBar = document.createElement("div");
       searchBar.classList.add("search-bar");
@@ -2826,6 +2907,7 @@
 
     loadUsers();
     loadPosts();
+    removeExpiredPosts();
 
     const storedUser = sessionStorage.getItem(currentUserKey);
     if (storedUser && users[storedUser]) {
@@ -2889,6 +2971,11 @@
         return;
       }
 
+      const durationHours = Number.parseInt(
+        document.getElementById("postDurationImage").value,
+        10
+      );
+      const expiresAt = getExpirationTimestamp(durationHours);
       const caption = sanitizeText(captionRaw).slice(0, 200);
       const post = {
         id: getNextPostId(),
@@ -2899,6 +2986,7 @@
         likes: [],
         saves: [],
         comments: [],
+        expiresAt,
       };
 
       posts.unshift(post);
@@ -2953,6 +3041,11 @@
         return;
       }
 
+      const durationHours = Number.parseInt(
+        document.getElementById("postDurationQuiz").value,
+        10
+      );
+      const expiresAt = getExpirationTimestamp(durationHours);
       const sanitizedOptions = optionsRaw.map((option) => sanitizeText(option).slice(0, 100));
       const post = {
         id: getNextPostId(),
@@ -2964,6 +3057,7 @@
         likes: [],
         saves: [],
         comments: [],
+        expiresAt,
       };
 
       posts.unshift(post);
@@ -2985,6 +3079,11 @@
         return;
       }
 
+      const durationHours = Number.parseInt(
+        document.getElementById("postDurationGame").value,
+        10
+      );
+      const expiresAt = getExpirationTimestamp(durationHours);
       const scoreSeconds = (activeGame.duration / 1000).toFixed(2);
       const post = {
         id: getNextPostId(),
@@ -2999,6 +3098,7 @@
         likes: [],
         saves: [],
         comments: [],
+        expiresAt,
       };
 
       posts.unshift(post);
