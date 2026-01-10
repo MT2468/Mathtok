@@ -46,6 +46,43 @@
       color-scheme: light;
     }
 
+    body.high-contrast {
+      --bg-color: #000;
+      --text-color: #fff;
+      --surface-color: #000;
+      --surface-alt-color: #000;
+      --nav-bg: #000;
+      --border-color: #fff;
+      --muted-text-color: #fffdc4;
+      --input-bg: #000;
+      --input-border: #fff;
+      --secondary-border: #fff;
+      --game-bg: #000;
+      font-size: 110%;
+    }
+
+    body.high-contrast button,
+    body.high-contrast input,
+    body.high-contrast textarea,
+    body.high-contrast select {
+      background: #000;
+      border: 2px solid #fff;
+      color: #fff;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+      outline: 2px solid #3498db;
+      outline-offset: 2px;
+    }
+
+    body.high-contrast :focus-visible {
+      outline: 3px dashed #ffd166;
+      outline-offset: 3px;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -866,54 +903,54 @@
 
   <div id="mainApp">
     <nav id="mobileNav" aria-label="Navegação principal mobile">
-      <button type="button" aria-label="Home">
+      <button type="button" aria-label="Home" title="Home (tecla H)">
         <i class="fa-solid fa-house"></i>
         <span>Home</span>
       </button>
-      <button type="button" aria-label="Discover">
+      <button type="button" aria-label="Discover" title="Discover">
         <i class="fa-solid fa-magnifying-glass"></i>
         <span>Discover</span>
       </button>
-      <button type="button" aria-label="Friends">
+      <button type="button" aria-label="Friends" title="Friends (tecla F)">
         <i class="fa-solid fa-user-group"></i>
         <span>Friends</span>
       </button>
-      <button type="button" aria-label="Create">
+      <button type="button" aria-label="Create" title="Criar (tecla C)">
         <i class="fa-solid fa-circle-plus"></i>
         <span>Create</span>
       </button>
-      <button type="button" aria-label="Inbox">
+      <button type="button" aria-label="Inbox" title="Inbox (tecla I)">
         <i class="fa-regular fa-paper-plane"></i>
         <span>Inbox</span>
       </button>
-      <button type="button" aria-label="Profile">
+      <button type="button" aria-label="Profile" title="Perfil (tecla P)">
         <i class="fa-regular fa-user"></i>
         <span>Profile</span>
       </button>
     </nav>
 
     <nav id="desktopNav" aria-label="Navegação principal desktop">
-      <button type="button" aria-label="Home">
+      <button type="button" aria-label="Home" title="Home (tecla H)">
         <i class="fa-solid fa-house"></i>
         <span>Home</span>
       </button>
-      <button type="button" aria-label="Discover">
+      <button type="button" aria-label="Discover" title="Discover">
         <i class="fa-solid fa-magnifying-glass"></i>
         <span>Discover</span>
       </button>
-      <button type="button" aria-label="Friends">
+      <button type="button" aria-label="Friends" title="Friends (tecla F)">
         <i class="fa-solid fa-user-group"></i>
         <span>Friends</span>
       </button>
-      <button type="button" aria-label="Create">
+      <button type="button" aria-label="Create" title="Criar (tecla C)">
         <i class="fa-solid fa-circle-plus"></i>
         <span>Create</span>
       </button>
-      <button type="button" aria-label="Inbox">
+      <button type="button" aria-label="Inbox" title="Inbox (tecla I)">
         <i class="fa-regular fa-paper-plane"></i>
         <span>Inbox</span>
       </button>
-      <button type="button" aria-label="Profile">
+      <button type="button" aria-label="Profile" title="Perfil (tecla P)">
         <i class="fa-regular fa-user"></i>
         <span>Profile</span>
       </button>
@@ -975,6 +1012,12 @@
             </div>
           </div>
           <div class="setting-item">
+            <label for="highContrast">
+              <input type="checkbox" id="highContrast">
+              Modo alto contraste
+            </label>
+          </div>
+          <div class="setting-item">
             <p class="setting-title">Notificações</p>
             <p class="setting-help">Em breve você poderá gerenciar alertas por push e e-mail.</p>
           </div>
@@ -983,7 +1026,7 @@
     </div>
 
     <div id="createModal" class="modal" aria-hidden="true">
-      <div class="modal-content">
+      <div class="modal-content" tabindex="-1">
         <div class="modal-header">
           <h3>Criar publicação</h3>
           <p class="modal-note">Escolha o tipo de conteúdo que deseja publicar.</p>
@@ -1091,7 +1134,7 @@
     </div>
 
     <div id="commentsModal" class="modal" aria-hidden="true">
-      <div class="modal-content">
+      <div class="modal-content" tabindex="-1">
         <div class="modal-header">
           <h3>Comentários</h3>
           <p class="modal-note" id="commentsSubtitle">Confira o que a comunidade falou.</p>
@@ -1109,7 +1152,7 @@
     </div>
 
     <div id="gameOverlay" class="modal" aria-hidden="true">
-      <div class="modal-content">
+      <div class="modal-content" tabindex="-1">
         <h3>Minigame</h3>
         <p class="modal-note">Desvie dos obstáculos e registre sua gameplay.</p>
         <canvas id="gameCanvas" width="800" height="400"></canvas>
@@ -1153,6 +1196,8 @@
     const searchImageButton = document.getElementById("searchImageButton");
     const randomQuizButton = document.getElementById("randomQuizBtn");
     const imgPreview = document.getElementById("imgPreview");
+    const imageThemeInput = document.getElementById("imageTheme");
+    const quizQuestionInput = document.getElementById("quizQuestion");
     const startGameButton = document.getElementById("startGameButton");
     const homePage = document.getElementById("homePage");
     const discoverPage = document.getElementById("discoverPage");
@@ -1175,6 +1220,7 @@
     let activeGame = null;
     let discoverFilter = "all";
     let discoverSearchQuery = "";
+    let lastFocusedElement = null;
 
     function loadUsers() {
       const stored = localStorage.getItem(USERS_KEY);
@@ -1291,6 +1337,7 @@
     function enterApp() {
       authPage.style.display = "none";
       mainApp.style.display = "block";
+      applyUserAccessibility();
       showPage("homePage");
     }
 
@@ -1335,6 +1382,21 @@
       document.body.classList.add(`${nextTheme}-theme`);
       localStorage.setItem(THEME_KEY, nextTheme);
       syncThemeToggles();
+    }
+
+    function applyHighContrast(enabled) {
+      document.body.classList.toggle("high-contrast", Boolean(enabled));
+    }
+
+    function applyUserAccessibility() {
+      const currentUser = getCurrentUser();
+      const userData = currentUser ? users[currentUser] : null;
+      if (!userData) {
+        applyHighContrast(false);
+        return;
+      }
+      normalizeUserPreferences(userData);
+      applyHighContrast(userData.preferences.highContrast);
     }
 
     function createThemeToggle() {
@@ -1483,12 +1545,25 @@
       resetCreateModal();
       createModal.classList.add("active");
       createModal.setAttribute("aria-hidden", "false");
+      createModal.setAttribute("aria-modal", "true");
+      lastFocusedElement = document.activeElement;
+      const firstOption = chooseType.querySelector("button[data-target]");
+      if (firstOption) {
+        firstOption.focus();
+      }
     }
 
     function closeCreateModal() {
       createModal.classList.remove("active");
       createModal.setAttribute("aria-hidden", "true");
+      createModal.removeAttribute("aria-modal");
       resetCreateModal();
+      if (lastFocusedElement instanceof HTMLElement) {
+        lastFocusedElement.focus();
+      } else {
+        const createButton = document.querySelector("button[aria-label='Create']");
+        createButton?.focus();
+      }
     }
 
     function renderFeed() {
@@ -1721,13 +1796,20 @@
     function openGameOverlay() {
       gameOverlay.classList.add("active");
       gameOverlay.setAttribute("aria-hidden", "false");
+      gameOverlay.setAttribute("aria-modal", "true");
+      lastFocusedElement = document.activeElement;
+      exitGameButton.focus();
     }
 
     function closeGameOverlay() {
       gameOverlay.classList.remove("active");
       gameOverlay.setAttribute("aria-hidden", "true");
+      gameOverlay.removeAttribute("aria-modal");
       gameMessage.textContent = "";
       publishGameButton.disabled = true;
+      if (lastFocusedElement instanceof HTMLElement) {
+        lastFocusedElement.focus();
+      }
     }
 
     function stopActiveGame() {
@@ -2078,6 +2160,19 @@
 
       commentsModal.classList.add("active");
       commentsModal.setAttribute("aria-hidden", "false");
+      commentsModal.setAttribute("aria-modal", "true");
+      lastFocusedElement = document.activeElement;
+      commentInput.focus();
+    }
+
+    function closeCommentsModal() {
+      commentsModal.classList.remove("active");
+      commentsModal.setAttribute("aria-hidden", "true");
+      commentsModal.removeAttribute("aria-modal");
+      activePostId = null;
+      if (lastFocusedElement instanceof HTMLElement) {
+        lastFocusedElement.focus();
+      }
     }
 
     function renderComment(comment, allComments, indent = false) {
@@ -2257,6 +2352,7 @@
       user.preferences.hideImages = Boolean(user.preferences.hideImages);
       user.preferences.hideQuizzes = Boolean(user.preferences.hideQuizzes);
       user.preferences.hideGames = Boolean(user.preferences.hideGames);
+      user.preferences.highContrast = Boolean(user.preferences.highContrast);
       normalizeUserPoints(user);
       normalizeUserVerification(user);
     }
@@ -2361,6 +2457,7 @@
       const hideImagesInput = settingsForm.querySelector("#hideImages");
       const hideQuizzesInput = settingsForm.querySelector("#hideQuizzes");
       const hideGamesInput = settingsForm.querySelector("#hideGames");
+      const highContrastInput = settingsForm.querySelector("#highContrast");
 
       if (hideImagesInput) {
         hideImagesInput.checked = Boolean(userData.preferences.hideImages);
@@ -2372,6 +2469,11 @@
 
       if (hideGamesInput) {
         hideGamesInput.checked = Boolean(userData.preferences.hideGames);
+      }
+
+      if (highContrastInput) {
+        highContrastInput.checked = Boolean(userData.preferences.highContrast);
+        applyHighContrast(highContrastInput.checked);
       }
 
       if (settingsForm.dataset.bound === "true") {
@@ -2415,6 +2517,11 @@
 
         if (target.id === "hideGames") {
           currentData.preferences.hideGames = target.checked;
+        }
+
+        if (target.id === "highContrast") {
+          currentData.preferences.highContrast = target.checked;
+          applyHighContrast(target.checked);
         }
 
         saveUsers();
@@ -3299,9 +3406,7 @@
 
     commentsModal.querySelectorAll("[data-cancel='comments']").forEach((button) => {
       button.addEventListener("click", () => {
-        commentsModal.classList.remove("active");
-        commentsModal.setAttribute("aria-hidden", "true");
-        activePostId = null;
+        closeCommentsModal();
       });
     });
 
@@ -3309,6 +3414,15 @@
       button.addEventListener("click", () => {
         setActiveForm(button.dataset.target);
         clearCreateError();
+        if (button.dataset.target === "formImage" && imageThemeInput) {
+          imageThemeInput.focus();
+        }
+        if (button.dataset.target === "formQuiz" && quizQuestionInput) {
+          quizQuestionInput.focus();
+        }
+        if (button.dataset.target === "formGame") {
+          startGameButton.focus();
+        }
       });
     });
 
@@ -3549,6 +3663,55 @@
       button.addEventListener("click", () => showPage("inboxPage"));
     });
 
+    document.addEventListener("keydown", (event) => {
+      const target = event.target;
+      const tagName = target?.tagName;
+      if (
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        target?.isContentEditable ||
+        tagName === "INPUT" ||
+        tagName === "TEXTAREA" ||
+        tagName === "SELECT"
+      ) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (createModal.classList.contains("active")) {
+          closeCreateModal();
+        }
+        if (commentsModal.classList.contains("active")) {
+          closeCommentsModal();
+        }
+        if (gameOverlay.classList.contains("active")) {
+          exitGameButton.click();
+        }
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (key === "h") {
+        showPage("homePage");
+      }
+      if (key === "f") {
+        showPage("friendsPage");
+      }
+      if (key === "c") {
+        openCreateModal();
+      }
+      if (key === "i") {
+        showPage("inboxPage");
+      }
+      if (key === "p") {
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+          openProfile(currentUser);
+        }
+      }
+    });
+
     // -----------------------------
     // Registro
     // -----------------------------
@@ -3593,6 +3756,7 @@
           hideImages: false,
           hideQuizzes: false,
           hideGames: false,
+          highContrast: false,
         },
         points: 0,
         isVerified: false,
