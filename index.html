@@ -228,6 +228,7 @@
       gap: 4px;
       align-items: center;
       justify-content: center;
+      position: relative;
     }
 
     #mobileNav i {
@@ -256,6 +257,7 @@
       display: flex;
       gap: 12px;
       padding: 8px 12px;
+      position: relative;
       width: 100%;
     }
 
@@ -1028,6 +1030,22 @@
       font-style: normal;
     }
 
+    .notif-badge {
+      align-items: center;
+      background: #e74c3c;
+      border-radius: 999px;
+      color: #fff;
+      display: none;
+      font-size: 11px;
+      font-weight: 600;
+      min-height: 18px;
+      min-width: 18px;
+      padding: 0 6px;
+      position: absolute;
+      right: 6px;
+      top: 2px;
+    }
+
     .expire-tag {
       align-items: center;
       background: rgba(0, 0, 0, 0.6);
@@ -1102,6 +1120,7 @@
       <button type="button" aria-label="Inbox" title="Inbox (tecla I)">
         <i class="fa-regular fa-paper-plane"></i>
         <span>Inbox</span>
+        <span class="notif-badge" data-badge="inbox"></span>
       </button>
       <button type="button" aria-label="Messages" title="Mensagens diretas">
         <i class="fa-regular fa-envelope"></i>
@@ -1133,6 +1152,7 @@
       <button type="button" aria-label="Inbox" title="Inbox (tecla I)">
         <i class="fa-regular fa-paper-plane"></i>
         <span>Inbox</span>
+        <span class="notif-badge" data-badge="inbox"></span>
       </button>
       <button type="button" aria-label="Messages" title="Mensagens diretas">
         <i class="fa-regular fa-envelope"></i>
@@ -1622,6 +1642,7 @@
       mainApp.style.display = "block";
       applyUserAccessibility();
       showPage("homePage");
+      updateNotifBadge();
     }
 
     function getCurrentUser() {
@@ -1636,8 +1657,12 @@
       users[targetUser].notifications.push({
         ...notification,
         timestamp: Date.now(),
+        read: false,
       });
       saveUsers();
+      if (targetUser === getCurrentUser()) {
+        updateNotifBadge();
+      }
     }
 
     function sanitizeText(text) {
@@ -1680,6 +1705,31 @@
       }
       normalizeUserPreferences(userData);
       applyHighContrast(userData.preferences.highContrast);
+    }
+
+    function updateNotifBadge() {
+      const badges = document.querySelectorAll(".notif-badge");
+      const currentUser = getCurrentUser();
+      if (!currentUser || !users[currentUser]) {
+        badges.forEach((badge) => {
+          badge.style.display = "none";
+          badge.textContent = "";
+        });
+        return;
+      }
+
+      const notifications = users[currentUser].notifications || [];
+      const unreadCount = notifications.filter((notification) => !notification.read).length;
+
+      badges.forEach((badge) => {
+        if (unreadCount > 0) {
+          badge.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+          badge.style.display = "inline-flex";
+        } else {
+          badge.textContent = "";
+          badge.style.display = "none";
+        }
+      });
     }
 
     function createThemeToggle() {
@@ -3824,8 +3874,15 @@
         const empty = document.createElement("p");
         empty.textContent = "Sem notificações recentes.";
         inboxPage.appendChild(empty);
+        updateNotifBadge();
         return;
       }
+
+      notifications.forEach((notification) => {
+        notification.read = true;
+      });
+      saveUsers();
+      updateNotifBadge();
 
       notifications
         .slice()
