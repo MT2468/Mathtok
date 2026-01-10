@@ -158,6 +158,11 @@
       padding: 24px;
     }
 
+    .page h2 {
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+
     #mobileNav {
       background: var(--nav-bg);
       border-top: 1px solid var(--border-color);
@@ -632,6 +637,10 @@
         <i class="fa-solid fa-house"></i>
         <span>Home</span>
       </button>
+      <button type="button" aria-label="Discover">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <span>Discover</span>
+      </button>
       <button type="button" aria-label="Friends">
         <i class="fa-solid fa-user-group"></i>
         <span>Friends</span>
@@ -655,6 +664,10 @@
         <i class="fa-solid fa-house"></i>
         <span>Home</span>
       </button>
+      <button type="button" aria-label="Discover">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <span>Discover</span>
+      </button>
       <button type="button" aria-label="Friends">
         <i class="fa-solid fa-user-group"></i>
         <span>Friends</span>
@@ -676,6 +689,10 @@
     <div class="content-wrapper">
       <section id="homePage" class="page">
         <h2>Home</h2>
+      </section>
+      <section id="discoverPage" class="page">
+        <h2>Descobrir</h2>
+        <div id="discoverContent"></div>
       </section>
       <section id="friendsPage" class="page">
         <h2>Friends</h2>
@@ -828,6 +845,8 @@
     const imgPreview = document.getElementById("imgPreview");
     const startGameButton = document.getElementById("startGameButton");
     const homePage = document.getElementById("homePage");
+    const discoverPage = document.getElementById("discoverPage");
+    const discoverContent = document.getElementById("discoverContent");
     const commentsModal = document.getElementById("commentsModal");
     const commentsContent = document.getElementById("commentsContent");
     const commentForm = document.getElementById("commentForm");
@@ -1617,7 +1636,7 @@
     }
 
     function setVisiblePage(pageId) {
-      const pages = ["homePage", "friendsPage", "inboxPage", "profilePage"];
+      const pages = ["homePage", "discoverPage", "friendsPage", "inboxPage", "profilePage"];
       pages.forEach((id) => {
         const page = document.getElementById(id);
         page.style.display = id === pageId ? "block" : "none";
@@ -1629,6 +1648,10 @@
 
       if (pageId === "inboxPage") {
         renderInboxPage();
+      }
+
+      if (pageId === "discoverPage") {
+        renderDiscoverPage();
       }
 
       if (pageId === "friendsPage") {
@@ -1919,6 +1942,17 @@
       }
 
       friendsPage.appendChild(suggestionList);
+    }
+
+    function renderDiscoverPage() {
+      if (!discoverContent) {
+        return;
+      }
+
+      discoverContent.innerHTML = "";
+      const hint = document.createElement("p");
+      hint.textContent = "Em breve você verá tendências e sugestões por aqui.";
+      discoverContent.appendChild(hint);
     }
 
     function renderInboxPage() {
@@ -2231,6 +2265,10 @@
 
     document.querySelectorAll("button[aria-label='Home']").forEach((button) => {
       button.addEventListener("click", () => showPage("homePage"));
+    });
+
+    document.querySelectorAll("button[aria-label='Discover']").forEach((button) => {
+      button.addEventListener("click", () => showPage("discoverPage"));
     });
 
     document.querySelectorAll("button[aria-label='Inbox']").forEach((button) => {
