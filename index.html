@@ -1359,126 +1359,132 @@
       }
 
       shuffled.forEach((post) => {
-        const postElement = document.createElement("div");
-        postElement.classList.add("post");
-        postElement.dataset.id = post.id;
-
-        if (post.expiresAt) {
-          const expireTag = document.createElement("span");
-          expireTag.classList.add("expire-tag");
-          expireTag.innerHTML = "<i class=\"fa-regular fa-clock\"></i> Temporário";
-          postElement.appendChild(expireTag);
-        }
-
-        const content = document.createElement("div");
-        content.classList.add("post-content");
-
-        if (post.type === "image") {
-          const img = document.createElement("img");
-          img.src = post.imageUrl;
-          img.alt = post.caption ? `Imagem de ${post.author}` : "Imagem do post";
-          img.classList.add("post-image");
-          img.loading = "lazy";
-          content.appendChild(img);
-        }
-
-        if (post.type === "quiz") {
-          const quizContainer = document.createElement("div");
-          quizContainer.classList.add("quiz-container");
-
-          const question = document.createElement("p");
-          question.textContent = post.question;
-          quizContainer.appendChild(question);
-
-          post.options.forEach((option, index) => {
-            const optionButton = document.createElement("button");
-            optionButton.type = "button";
-            optionButton.classList.add("quiz-option");
-            optionButton.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
-            quizContainer.appendChild(optionButton);
-          });
-
-          content.appendChild(quizContainer);
-        }
-
-        if (post.type === "game") {
-          const canvas = document.createElement("canvas");
-          canvas.width = 320;
-          canvas.height = 160;
-          canvas.classList.add("game-replay-canvas");
-          content.appendChild(canvas);
-          playReplay(post, canvas);
-        }
-
-        const info = document.createElement("div");
-        info.classList.add("post-info");
-
-        const author = document.createElement("span");
-        author.classList.add("post-author");
-        author.textContent = `@${post.author}`;
-        author.addEventListener("click", () => {
-          openProfile(post.author);
-        });
-
-        info.appendChild(author);
-
-        if (post.type !== "quiz" && post.caption) {
-          const caption = document.createElement("p");
-          caption.textContent = post.caption;
-          info.appendChild(caption);
-        }
-
-        const actions = document.createElement("div");
-        actions.classList.add("post-actions");
-
-        const likeButton = document.createElement("button");
-        likeButton.type = "button";
-        likeButton.classList.add("action-button");
-        likeButton.innerHTML = "<i class=\"fa-solid fa-heart\"></i>";
-
-        const likeCount = document.createElement("span");
-        likeCount.textContent = post.likes.length;
-        likeButton.appendChild(likeCount);
-
-        if (currentUser && post.likes.includes(currentUser)) {
-          likeButton.classList.add("liked");
-        }
-
-        likeButton.addEventListener("click", () => toggleLike(post.id));
-        actions.appendChild(likeButton);
-
-        const commentButton = document.createElement("button");
-        commentButton.type = "button";
-        commentButton.classList.add("action-button");
-        commentButton.innerHTML = "<i class=\"fa-regular fa-comment\"></i>";
-        const commentCount = document.createElement("span");
-        commentCount.textContent = post.comments.length;
-        commentButton.appendChild(commentCount);
-        commentButton.addEventListener("click", () => openComments(post.id));
-        actions.appendChild(commentButton);
-
-        const shareButton = document.createElement("button");
-        shareButton.type = "button";
-        shareButton.classList.add("action-button");
-        shareButton.innerHTML = "<i class=\"fa-solid fa-share\"></i>";
-        shareButton.addEventListener("click", () => sharePost(post.id));
-        actions.appendChild(shareButton);
-
-        const saveButton = document.createElement("button");
-        saveButton.type = "button";
-        saveButton.classList.add("action-button");
-        saveButton.innerHTML = "<i class=\"fa-regular fa-bookmark\"></i>";
-        if (currentUser && users[currentUser]?.favorites?.includes(post.id)) {
-          saveButton.classList.add("saved");
-        }
-        saveButton.addEventListener("click", () => toggleSave(post.id));
-        actions.appendChild(saveButton);
-
-        postElement.appendChild(content);
-        postElement.appendChild(info);
-        postElement.appendChild(actions);
+        const postElement = createPostElement(post);
         homePage.appendChild(postElement);
       });
+    }
+
+    function createPostElement(post) {
+      const postElement = document.createElement("div");
+      postElement.classList.add("post");
+      postElement.dataset.id = post.id;
+
+      if (post.expiresAt) {
+        const expireTag = document.createElement("span");
+        expireTag.classList.add("expire-tag");
+        expireTag.innerHTML = "<i class=\"fa-regular fa-clock\"></i> Temporário";
+        postElement.appendChild(expireTag);
+      }
+
+      const content = document.createElement("div");
+      content.classList.add("post-content");
+
+      if (post.type === "image") {
+        const img = document.createElement("img");
+        img.src = post.imageUrl;
+        img.alt = post.caption ? `Imagem de ${post.author}` : "Imagem do post";
+        img.classList.add("post-image");
+        img.loading = "lazy";
+        content.appendChild(img);
+      }
+
+      if (post.type === "quiz") {
+        const quizContainer = document.createElement("div");
+        quizContainer.classList.add("quiz-container");
+
+        const question = document.createElement("p");
+        question.textContent = post.question;
+        quizContainer.appendChild(question);
+
+        post.options.forEach((option, index) => {
+          const optionButton = document.createElement("button");
+          optionButton.type = "button";
+          optionButton.classList.add("quiz-option");
+          optionButton.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
+          quizContainer.appendChild(optionButton);
+        });
+
+        content.appendChild(quizContainer);
+      }
+
+      if (post.type === "game") {
+        const canvas = document.createElement("canvas");
+        canvas.width = 320;
+        canvas.height = 160;
+        canvas.classList.add("game-replay-canvas");
+        content.appendChild(canvas);
+        playReplay(post, canvas);
+      }
+
+      const info = document.createElement("div");
+      info.classList.add("post-info");
+
+      const author = document.createElement("span");
+      author.classList.add("post-author");
+      author.textContent = `@${post.author}`;
+      author.addEventListener("click", () => {
+        openProfile(post.author);
+      });
+
+      info.appendChild(author);
+
+      if (post.type !== "quiz" && post.caption) {
+        const caption = document.createElement("p");
+        caption.textContent = post.caption;
+        info.appendChild(caption);
+      }
+
+      const actions = document.createElement("div");
+      actions.classList.add("post-actions");
+
+      const likeButton = document.createElement("button");
+      likeButton.type = "button";
+      likeButton.classList.add("action-button");
+      likeButton.innerHTML = "<i class=\"fa-solid fa-heart\"></i>";
+
+      const likeCount = document.createElement("span");
+      likeCount.textContent = post.likes.length;
+      likeButton.appendChild(likeCount);
+
+      const currentUser = getCurrentUser();
+      if (currentUser && post.likes.includes(currentUser)) {
+        likeButton.classList.add("liked");
+      }
+
+      likeButton.addEventListener("click", () => toggleLike(post.id));
+      actions.appendChild(likeButton);
+
+      const commentButton = document.createElement("button");
+      commentButton.type = "button";
+      commentButton.classList.add("action-button");
+      commentButton.innerHTML = "<i class=\"fa-regular fa-comment\"></i>";
+      const commentCount = document.createElement("span");
+      commentCount.textContent = post.comments.length;
+      commentButton.appendChild(commentCount);
+      commentButton.addEventListener("click", () => openComments(post.id));
+      actions.appendChild(commentButton);
+
+      const shareButton = document.createElement("button");
+      shareButton.type = "button";
+      shareButton.classList.add("action-button");
+      shareButton.innerHTML = "<i class=\"fa-solid fa-share\"></i>";
+      shareButton.addEventListener("click", () => sharePost(post.id));
+      actions.appendChild(shareButton);
+
+      const saveButton = document.createElement("button");
+      saveButton.type = "button";
+      saveButton.classList.add("action-button");
+      saveButton.innerHTML = "<i class=\"fa-regular fa-bookmark\"></i>";
+      if (currentUser && users[currentUser]?.favorites?.includes(post.id)) {
+        saveButton.classList.add("saved");
+      }
+      saveButton.addEventListener("click", () => toggleSave(post.id));
+      actions.appendChild(saveButton);
+
+      postElement.appendChild(content);
+      postElement.appendChild(info);
+      postElement.appendChild(actions);
+      return postElement;
     }
 
     function openGameOverlay() {
@@ -2368,8 +2374,12 @@
         return;
       }
 
+      loadPosts();
+      removeExpiredPosts();
+
       const currentData = users[currentUser];
       const following = currentData.following || [];
+      const preferences = getUserPreferences(currentUser);
 
       if (following.length === 0) {
         const message = document.createElement("p");
@@ -2436,6 +2446,41 @@
       }
 
       friendsPage.appendChild(suggestionList);
+
+      if (following.length === 0) {
+        return;
+      }
+
+      const friendsTitle = document.createElement("h3");
+      friendsTitle.textContent = "Novidades dos Amigos";
+      friendsTitle.style.marginTop = "20px";
+      friendsPage.appendChild(friendsTitle);
+
+      let friendsPosts = posts.filter((post) => following.includes(post.author));
+      if (preferences.hideImages) {
+        friendsPosts = friendsPosts.filter((post) => post.type !== "image");
+      }
+      if (preferences.hideQuizzes) {
+        friendsPosts = friendsPosts.filter((post) => post.type !== "quiz");
+      }
+      if (preferences.hideGames) {
+        friendsPosts = friendsPosts.filter((post) => post.type !== "game");
+      }
+
+      friendsPosts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+      if (friendsPosts.length === 0) {
+        const emptyPosts = document.createElement("p");
+        emptyPosts.textContent = "Ainda não há posts dos seus amigos.";
+        friendsPage.appendChild(emptyPosts);
+        return;
+      }
+
+      const friendsFeed = document.createElement("div");
+      friendsPosts.forEach((post) => {
+        friendsFeed.appendChild(createPostElement(post));
+      });
+      friendsPage.appendChild(friendsFeed);
     }
 
     function renderDiscoverPage() {
@@ -3008,6 +3053,7 @@
         id: getNextPostId(),
         type: "image",
         author: currentUser,
+        timestamp: Date.now(),
         caption,
         imageUrl: imgPreview.src,
         likes: [],
@@ -3080,6 +3126,7 @@
         id: getNextPostId(),
         type: "quiz",
         author: currentUser,
+        timestamp: Date.now(),
         question: sanitizeText(questionRaw).slice(0, 200),
         options: sanitizedOptions,
         correctIndex: Number.parseInt(correctValue, 10),
@@ -3120,6 +3167,7 @@
         id: getNextPostId(),
         type: "game",
         author: currentUser,
+        timestamp: Date.now(),
         caption: `Gameplay - ${scoreSeconds}s`,
         gameData: {
           inputs: activeGame.inputs,
