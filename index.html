@@ -430,6 +430,21 @@
       width: 100%;
     }
 
+    .quiz-option.correct {
+      background: #27ae60;
+      color: #fff;
+    }
+
+    .quiz-option.wrong {
+      background: #e74c3c;
+      color: #fff;
+    }
+
+    .quiz-feedback {
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
     .post-info {
       display: flex;
       flex-direction: column;
@@ -1170,7 +1185,9 @@
       }
       let updated = false;
       Object.values(users).forEach((user) => {
-        if (normalizeUserVerification(user)) {
+        const verificationUpdated = normalizeUserVerification(user);
+        const answeredUpdated = normalizeUserAnswered(user);
+        if (verificationUpdated || answeredUpdated) {
           updated = true;
         }
       });
@@ -1545,8 +1562,17 @@
           optionButton.type = "button";
           optionButton.classList.add("quiz-option");
           optionButton.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
+          optionButton.addEventListener("click", () =>
+            handleQuizAnswer(post, index, quizContainer)
+          );
           quizContainer.appendChild(optionButton);
         });
+
+        const currentUser = getCurrentUser();
+        const answered = currentUser ? users[currentUser]?.answered : null;
+        if (answered && answered[post.id] !== undefined) {
+          applyQuizAnswerState(quizContainer, post, answered[post.id]);
+        }
 
         content.appendChild(quizContainer);
       }
@@ -1630,6 +1656,66 @@
       postElement.appendChild(info);
       postElement.appendChild(actions);
       return postElement;
+    }
+
+    function applyQuizAnswerState(quizContainer, post, answeredIndex) {
+      const buttons = Array.from(quizContainer.querySelectorAll(".quiz-option"));
+      if (buttons.length === 0) {
+        return;
+      }
+
+      buttons.forEach((button) => {
+        button.disabled = true;
+      });
+
+      const correctButton = buttons[post.correctIndex];
+      if (correctButton) {
+        correctButton.classList.add("correct");
+      }
+
+      if (answeredIndex !== post.correctIndex) {
+        const wrongButton = buttons[answeredIndex];
+        if (wrongButton) {
+          wrongButton.classList.add("wrong");
+        }
+      }
+
+      if (quizContainer.querySelector(".quiz-feedback")) {
+        return;
+      }
+
+      const feedback = document.createElement("p");
+      feedback.classList.add("quiz-feedback");
+      const correctLabel = String.fromCharCode(65 + post.correctIndex);
+      feedback.textContent =
+        answeredIndex === post.correctIndex
+          ? "✅ Resposta correta!"
+          : `❌ Resposta errada. Correto: ${correctLabel}.`;
+      quizContainer.appendChild(feedback);
+    }
+
+    function handleQuizAnswer(post, selectedIndex, quizContainer) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        alert("Faça login para responder quizzes.");
+        return;
+      }
+
+      const userData = users[currentUser];
+      normalizeUserAnswered(userData);
+
+      if (userData.answered[post.id] !== undefined) {
+        alert("Você já respondeu este quiz.");
+        return;
+      }
+
+      userData.answered[post.id] = selectedIndex;
+      if (selectedIndex === post.correctIndex) {
+        addUserPoints(currentUser, 1);
+      }
+      saveUsers();
+
+      applyQuizAnswerState(quizContainer, post, selectedIndex);
     }
 
     function openGameOverlay() {
@@ -2173,6 +2259,14 @@
       user.preferences.hideGames = Boolean(user.preferences.hideGames);
       normalizeUserPoints(user);
       normalizeUserVerification(user);
+    }
+
+    function normalizeUserAnswered(user) {
+      if (!user.answered || typeof user.answered !== "object") {
+        user.answered = {};
+        return true;
+      }
+      return false;
     }
 
     function normalizeUserPoints(user) {
@@ -3503,6 +3597,7 @@
         points: 0,
         isVerified: false,
         notifications: [],
+        answered: {},
       };
       saveUsers();
       registerForm.reset();
