@@ -571,6 +571,40 @@
       margin-top: 16px;
     }
 
+    .emoji-button {
+      background: transparent;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+      padding: 4px;
+    }
+
+    .emoji-picker {
+      background: var(--surface-color);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+      display: none;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 6px;
+      position: absolute;
+      z-index: 30;
+    }
+
+    .emoji-picker.active {
+      display: flex;
+    }
+
+    .emoji-picker span {
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+      padding: 2px 4px;
+    }
+
     .profile-header {
       display: flex;
       align-items: center;
@@ -911,6 +945,7 @@
       border-top: 1px solid var(--border-color);
       display: flex;
       gap: 8px;
+      align-items: center;
       padding: 8px 12px;
     }
 
@@ -1140,6 +1175,14 @@
                 placeholder="Escreva uma mensagem..."
                 autocomplete="off"
               >
+              <button
+                class="emoji-button"
+                type="button"
+                data-target-input="chatInput"
+                aria-label="Inserir emoji na mensagem"
+              >
+                😊
+              </button>
               <button type="submit">Enviar</button>
             </form>
           </div>
@@ -1224,6 +1267,14 @@
           <div>
             <label for="imageCaption">Legenda</label>
             <textarea id="imageCaption" name="imageCaption" maxlength="200" placeholder="Escreva uma legenda curta"></textarea>
+            <button
+              class="emoji-button"
+              type="button"
+              data-target-input="imageCaption"
+              aria-label="Inserir emoji na legenda"
+            >
+              😊
+            </button>
           </div>
           <div>
             <label for="postDurationImage">Duração do post</label>
@@ -1244,6 +1295,14 @@
           <div>
             <label for="quizQuestion">Pergunta</label>
             <textarea id="quizQuestion" name="quizQuestion" maxlength="200" required></textarea>
+            <button
+              class="emoji-button"
+              type="button"
+              data-target-input="quizQuestion"
+              aria-label="Inserir emoji na pergunta"
+            >
+              😊
+            </button>
             <button class="secondary-button small-button" type="button" id="randomQuizBtn">
               Pergunta Aleatória
             </button>
@@ -1318,6 +1377,14 @@
         <form class="comment-form" id="commentForm">
           <label for="commentInput">Adicionar comentário</label>
           <textarea id="commentInput" name="commentInput" maxlength="200" required></textarea>
+          <button
+            class="emoji-button"
+            type="button"
+            data-target-input="commentInput"
+            aria-label="Inserir emoji no comentário"
+          >
+            😊
+          </button>
           <div class="modal-actions">
             <button class="primary-button" type="submit">Enviar</button>
             <button class="secondary-button" type="button" data-cancel="comments">Fechar</button>
@@ -1338,6 +1405,15 @@
           <button class="secondary-button" type="button" id="exitGame">Sair</button>
         </div>
       </div>
+    </div>
+
+    <div id="emojiPicker" class="emoji-picker" aria-hidden="true">
+      <span>😊</span>
+      <span>😂</span>
+      <span>👍</span>
+      <span>💡</span>
+      <span>❤️</span>
+      <span>🎉</span>
     </div>
   </div>
 
@@ -1420,6 +1496,7 @@
     const chatForm = document.getElementById("chatForm");
     const chatInput = document.getElementById("chatInput");
     const backToList = document.getElementById("backToList");
+    const emojiPicker = document.getElementById("emojiPicker");
     let activePostId = null;
     let activeGame = null;
     let discoverFilter = "all";
@@ -1754,6 +1831,16 @@
       return userData.preferences;
     }
 
+    // Controle básico do seletor de emojis reutilizável.
+    function hideEmojiPicker() {
+      if (!emojiPicker) {
+        return;
+      }
+      emojiPicker.classList.remove("active");
+      emojiPicker.setAttribute("aria-hidden", "true");
+      emojiPicker.dataset.targetInput = "";
+    }
+
     const MODAL_TRANSITION_MS = 300;
 
     // Controla a animação de abertura/fechamento dos modais com fade.
@@ -1772,6 +1859,7 @@
           onHidden();
         }
       }, MODAL_TRANSITION_MS);
+      hideEmojiPicker();
     }
 
     function openCreateModal() {
@@ -2713,6 +2801,7 @@
     }
 
     function showPage(pageId) {
+      hideEmojiPicker();
       setVisiblePage(pageId);
 
       if (pageId === "inboxPage") {
@@ -4147,6 +4236,58 @@
         saveUsers();
         chatInput.value = "";
         renderChatMessages(activeChatUser);
+      });
+    }
+
+    if (emojiPicker) {
+      document.querySelectorAll(".emoji-button").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const targetId = button.dataset.targetInput;
+          const targetInput = targetId ? document.getElementById(targetId) : null;
+          if (!targetInput) {
+            return;
+          }
+
+          const rect = button.getBoundingClientRect();
+          emojiPicker.style.left = `${rect.left + window.scrollX}px`;
+          emojiPicker.style.top = `${rect.bottom + window.scrollY + 6}px`;
+          emojiPicker.dataset.targetInput = targetId;
+          emojiPicker.classList.add("active");
+          emojiPicker.setAttribute("aria-hidden", "false");
+        });
+      });
+
+      emojiPicker.querySelectorAll("span").forEach((emoji) => {
+        emoji.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const targetId = emojiPicker.dataset.targetInput;
+          const targetInput = targetId ? document.getElementById(targetId) : null;
+          if (!targetInput) {
+            return;
+          }
+
+          const value = emoji.textContent || "";
+          if (typeof targetInput.setRangeText === "function") {
+            const start = targetInput.selectionStart ?? targetInput.value.length;
+            targetInput.setRangeText(value, start, start, "end");
+          } else {
+            targetInput.value += value;
+          }
+
+          targetInput.focus();
+          hideEmojiPicker();
+        });
+      });
+
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (emojiPicker.classList.contains("active")) {
+          const clickedEmojiButton = target?.closest?.(".emoji-button");
+          if (!emojiPicker.contains(target) && !clickedEmojiButton) {
+            hideEmojiPicker();
+          }
+        }
       });
     }
 
