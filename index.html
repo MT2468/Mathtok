@@ -311,6 +311,12 @@
       color: inherit;
     }
 
+    .small-button {
+      align-self: flex-start;
+      font-size: 13px;
+      padding: 8px 12px;
+    }
+
     .form-section {
       display: none;
       flex-direction: column;
@@ -993,6 +999,9 @@
           <div>
             <label for="quizQuestion">Pergunta</label>
             <textarea id="quizQuestion" name="quizQuestion" maxlength="200" required></textarea>
+            <button class="secondary-button small-button" type="button" id="randomQuizBtn">
+              Pergunta Aleatória
+            </button>
           </div>
           <div>
             <label for="quizOptionA">Opção A</label>
@@ -1115,6 +1124,7 @@
     const formQuiz = document.getElementById("formQuiz");
     const formGame = document.getElementById("formGame");
     const searchImageButton = document.getElementById("searchImageButton");
+    const randomQuizButton = document.getElementById("randomQuizBtn");
     const imgPreview = document.getElementById("imgPreview");
     const startGameButton = document.getElementById("startGameButton");
     const homePage = document.getElementById("homePage");
@@ -1265,6 +1275,12 @@
       return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
+    function decodeHtmlEntities(text) {
+      const textarea = document.createElement("textarea");
+      textarea.innerHTML = text;
+      return textarea.value;
+    }
+
     function syncThemeToggles() {
       const isLight = document.body.classList.contains("light-theme");
       document
@@ -1325,6 +1341,10 @@
       formQuiz.reset();
       imgPreview.src = "";
       imgPreview.style.display = "none";
+      if (randomQuizButton) {
+        randomQuizButton.disabled = false;
+        randomQuizButton.textContent = "Pergunta Aleatória";
+      }
       setActiveForm("chooseType");
     }
 
@@ -1333,6 +1353,64 @@
       sections.forEach((section) => {
         section.classList.toggle("active", section.id === sectionId);
       });
+    }
+
+    async function loadRandomQuizQuestion() {
+      if (!randomQuizButton) {
+        return;
+      }
+
+      // Integração externa: busca uma pergunta de matemática na Open Trivia DB.
+      randomQuizButton.disabled = true;
+      randomQuizButton.textContent = "Buscando...";
+
+      try {
+        const response = await fetch(
+          "https://opentdb.com/api.php?amount=1&category=19&type=multiple"
+        );
+
+        if (!response.ok) {
+          throw new Error("Falha ao buscar a pergunta.");
+        }
+
+        const data = await response.json();
+        const result = data?.results?.[0];
+
+        if (!result) {
+          throw new Error("Nenhuma pergunta disponível.");
+        }
+
+        const questionText = decodeHtmlEntities(result.question || "");
+        const correctAnswer = decodeHtmlEntities(result.correct_answer || "");
+        const incorrectAnswers = (result.incorrect_answers || []).map((answer) =>
+          decodeHtmlEntities(answer || "")
+        );
+        const allOptions = [...incorrectAnswers, correctAnswer];
+
+        for (let i = allOptions.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [allOptions[i], allOptions[j]] = [allOptions[j], allOptions[i]];
+        }
+
+        const correctIndex = allOptions.indexOf(correctAnswer);
+        formQuiz.quizQuestion.value = questionText;
+        formQuiz.quizOptionA.value = allOptions[0] || "";
+        formQuiz.quizOptionB.value = allOptions[1] || "";
+        formQuiz.quizOptionC.value = allOptions[2] || "";
+        formQuiz.quizOptionD.value = allOptions[3] || "";
+        formQuiz.quizCorrect.value = correctIndex >= 0 ? String(correctIndex) : "";
+
+        randomQuizButton.textContent = "Pergunta carregada!";
+        setTimeout(() => {
+          randomQuizButton.textContent = "Pergunta Aleatória";
+        }, 1500);
+      } catch (error) {
+        console.error(error);
+        randomQuizButton.textContent = "Pergunta Aleatória";
+        alert("Falha ao obter pergunta. Tente novamente.");
+      } finally {
+        randomQuizButton.disabled = false;
+      }
     }
 
     function isPrivatePostHidden(post, currentUser) {
@@ -3064,6 +3142,13 @@
       imgPreview.src = `https://source.unsplash.com/600x800/?${encodedTheme}`;
       imgPreview.style.display = "block";
     });
+
+    if (randomQuizButton) {
+      randomQuizButton.addEventListener("click", () => {
+        clearCreateError();
+        loadRandomQuizQuestion();
+      });
+    }
 
     formImage.addEventListener("submit", (event) => {
       event.preventDefault();
