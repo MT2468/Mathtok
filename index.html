@@ -611,6 +611,34 @@
       margin-top: 16px;
     }
 
+    .discover-filters {
+      background: var(--bg-color);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 8px 0;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .filter-btn {
+      background: var(--surface-alt-color);
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      color: inherit;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 6px 12px;
+    }
+
+    .filter-btn.active {
+      background: #ff2d55;
+      border-color: #ff2d55;
+      color: #fff;
+    }
+
     @media (min-width: 900px) {
       .discover-posts {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -895,6 +923,7 @@
     const exitGameButton = document.getElementById("exitGame");
     let activePostId = null;
     let activeGame = null;
+    let discoverFilter = "all";
 
     function loadUsers() {
       const stored = localStorage.getItem(USERS_KEY);
@@ -1985,6 +2014,63 @@
       }
 
       discoverContent.innerHTML = "";
+      const filters = [
+        { label: "Todos", type: "all" },
+        { label: "Imagens", type: "image" },
+        { label: "Quizzes", type: "quiz" },
+        { label: "Jogos", type: "game" },
+      ];
+
+      const filtersContainer = document.createElement("div");
+      filtersContainer.classList.add("discover-filters");
+
+      filters.forEach((filter) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.classList.add("filter-btn");
+        if (discoverFilter === filter.type) {
+          button.classList.add("active");
+        }
+        button.dataset.type = filter.type;
+        button.textContent = filter.label;
+        button.setAttribute("aria-pressed", discoverFilter === filter.type ? "true" : "false");
+        button.addEventListener("click", () => {
+          applyDiscoverFilter(filter.type);
+        });
+        filtersContainer.appendChild(button);
+      });
+
+      discoverContent.appendChild(filtersContainer);
+
+      if (discoverFilter !== "all") {
+        const filteredTitle = document.createElement("h3");
+        filteredTitle.textContent = `Explorar: ${filters.find((item) => item.type === discoverFilter)?.label}`;
+
+        const filteredContainer = document.createElement("div");
+        filteredContainer.classList.add("discover-posts");
+
+        const filteredPosts = posts
+          .filter((post) => post.type === discoverFilter)
+          .sort((a, b) => (b.id || 0) - (a.id || 0));
+
+        if (filteredPosts.length === 0) {
+          const emptyFiltered = document.createElement("p");
+          emptyFiltered.textContent = `Nenhum post de ${filters
+            .find((item) => item.type === discoverFilter)
+            ?.label.toLowerCase()} encontrado.`;
+          filteredContainer.appendChild(emptyFiltered);
+        } else {
+          filteredPosts.forEach((post) => {
+            const postCard = buildDiscoverPostCard(post);
+            filteredContainer.appendChild(postCard);
+          });
+        }
+
+        discoverContent.appendChild(filteredTitle);
+        discoverContent.appendChild(filteredContainer);
+        return;
+      }
+
       const tagTitle = document.createElement("h3");
       tagTitle.textContent = "Hashtags em alta";
 
@@ -2068,6 +2154,11 @@
     function filterByHashtag(tag) {
       // Placeholder: em breve vamos filtrar os posts por hashtag.
       console.log(`Filtro de hashtag selecionado: ${tag}`);
+    }
+
+    function applyDiscoverFilter(type) {
+      discoverFilter = type;
+      renderDiscoverPage();
     }
 
     function buildDiscoverPostCard(post) {
