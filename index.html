@@ -677,6 +677,46 @@
       gap: 12px;
     }
 
+    .settings-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .setting-item {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 16px;
+    }
+
+    .setting-item:last-child {
+      border-bottom: none;
+    }
+
+    .setting-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .setting-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .setting-item label {
+      align-items: center;
+      cursor: pointer;
+      display: flex;
+      gap: 8px;
+    }
+
+    .setting-help {
+      color: var(--muted-text-color);
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
     @media (min-width: 900px) {
       .discover-posts {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -802,6 +842,52 @@
         <h2>Inbox</h2>
       </section>
       <section id="profilePage" class="page"></section>
+      <section id="settingsPage" class="page">
+        <h2>Configurações</h2>
+        <button class="secondary-button" type="button" id="settingsBackButton">Voltar ao perfil</button>
+        <form id="settingsForm" class="settings-form">
+          <div class="setting-item">
+            <p class="setting-title">Tema do aplicativo</p>
+            <div class="setting-options">
+              <label for="themeLight">
+                <input id="themeLight" type="radio" name="theme" value="light">
+                Claro
+              </label>
+              <label for="themeDark">
+                <input id="themeDark" type="radio" name="theme" value="dark">
+                Escuro
+              </label>
+            </div>
+          </div>
+          <div class="setting-item">
+            <label for="privateAccount">
+              <input type="checkbox" id="privateAccount">
+              Conta privada (somente seguidores aprovados podem ver seus posts)
+            </label>
+          </div>
+          <div class="setting-item">
+            <p class="setting-title">Ocultar do feed principal</p>
+            <div class="setting-options">
+              <label for="hideImages">
+                <input type="checkbox" id="hideImages">
+                Posts de Imagem
+              </label>
+              <label for="hideQuizzes">
+                <input type="checkbox" id="hideQuizzes">
+                Posts de Quiz
+              </label>
+              <label for="hideGames">
+                <input type="checkbox" id="hideGames">
+                Posts de Jogo
+              </label>
+            </div>
+          </div>
+          <div class="setting-item">
+            <p class="setting-title">Notificações</p>
+            <p class="setting-help">Em breve você poderá gerenciar alertas por push e e-mail.</p>
+          </div>
+        </form>
+      </section>
     </div>
 
     <div id="createModal" class="modal" aria-hidden="true">
@@ -959,6 +1045,9 @@
     const publishGameButton = document.getElementById("publishGameButton");
     const cancelGameButton = document.getElementById("cancelGameButton");
     const exitGameButton = document.getElementById("exitGame");
+    const settingsPage = document.getElementById("settingsPage");
+    const settingsForm = document.getElementById("settingsForm");
+    const settingsBackButton = document.getElementById("settingsBackButton");
     let activePostId = null;
     let activeGame = null;
     let discoverFilter = "all";
@@ -1739,7 +1828,14 @@
     }
 
     function setVisiblePage(pageId) {
-      const pages = ["homePage", "discoverPage", "friendsPage", "inboxPage", "profilePage"];
+      const pages = [
+        "homePage",
+        "discoverPage",
+        "friendsPage",
+        "inboxPage",
+        "profilePage",
+        "settingsPage",
+      ];
       pages.forEach((id) => {
         const page = document.getElementById(id);
         page.style.display = id === pageId ? "block" : "none";
@@ -1764,6 +1860,118 @@
       if (pageId === "homePage") {
         renderFeed();
       }
+
+      if (pageId === "settingsPage") {
+        renderSettingsPage();
+      }
+    }
+
+    function normalizeUserPreferences(user) {
+      if (user.private === undefined) {
+        user.private = false;
+      }
+
+      if (!user.preferences) {
+        user.preferences = {};
+      }
+
+      user.preferences.hideImages = Boolean(user.preferences.hideImages);
+      user.preferences.hideQuizzes = Boolean(user.preferences.hideQuizzes);
+      user.preferences.hideGames = Boolean(user.preferences.hideGames);
+    }
+
+    function renderSettingsPage() {
+      if (!settingsForm || !settingsPage) {
+        return;
+      }
+
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        return;
+      }
+
+      const userData = users[currentUser];
+      if (!userData) {
+        return;
+      }
+
+      normalizeUserPreferences(userData);
+
+      const storedTheme = localStorage.getItem(THEME_KEY) || "dark";
+      settingsForm
+        .querySelectorAll("input[name='theme']")
+        .forEach((input) => {
+          input.checked = input.value === storedTheme;
+        });
+
+      const privateAccountInput = settingsForm.querySelector("#privateAccount");
+      if (privateAccountInput) {
+        privateAccountInput.checked = Boolean(userData.private);
+      }
+
+      const hideImagesInput = settingsForm.querySelector("#hideImages");
+      const hideQuizzesInput = settingsForm.querySelector("#hideQuizzes");
+      const hideGamesInput = settingsForm.querySelector("#hideGames");
+
+      if (hideImagesInput) {
+        hideImagesInput.checked = Boolean(userData.preferences.hideImages);
+      }
+
+      if (hideQuizzesInput) {
+        hideQuizzesInput.checked = Boolean(userData.preferences.hideQuizzes);
+      }
+
+      if (hideGamesInput) {
+        hideGamesInput.checked = Boolean(userData.preferences.hideGames);
+      }
+
+      if (settingsForm.dataset.bound === "true") {
+        return;
+      }
+
+      settingsForm.addEventListener("change", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) {
+          return;
+        }
+
+        const currentUserName = getCurrentUser();
+        if (!currentUserName) {
+          return;
+        }
+
+        const currentData = users[currentUserName];
+        if (!currentData) {
+          return;
+        }
+
+        normalizeUserPreferences(currentData);
+
+        if (target.name === "theme") {
+          applyTheme(target.value);
+          return;
+        }
+
+        if (target.id === "privateAccount") {
+          currentData.private = target.checked;
+        }
+
+        if (target.id === "hideImages") {
+          currentData.preferences.hideImages = target.checked;
+        }
+
+        if (target.id === "hideQuizzes") {
+          currentData.preferences.hideQuizzes = target.checked;
+        }
+
+        if (target.id === "hideGames") {
+          currentData.preferences.hideGames = target.checked;
+        }
+
+        saveUsers();
+      });
+
+      settingsForm.dataset.bound = "true";
     }
 
     function renderProfileHeader(user, isCurrentUser) {
@@ -1819,6 +2027,11 @@
           }
         });
 
+        const settingsButton = document.createElement("button");
+        settingsButton.classList.add("secondary-button");
+        settingsButton.textContent = "Configurações";
+        settingsButton.addEventListener("click", () => showPage("settingsPage"));
+
         const logoutButton = document.createElement("button");
         logoutButton.classList.add("logout-button");
         logoutButton.textContent = "Sair";
@@ -1828,6 +2041,7 @@
         });
 
         actions.appendChild(editButton);
+        actions.appendChild(settingsButton);
         actions.appendChild(logoutButton);
         actions.appendChild(createThemeToggle());
       } else {
@@ -2748,6 +2962,17 @@
       });
     });
 
+    if (settingsBackButton) {
+      settingsBackButton.addEventListener("click", () => {
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+          openProfile(currentUser);
+        } else {
+          showPage("homePage");
+        }
+      });
+    }
+
     document.querySelectorAll("button[aria-label='Friends']").forEach((button) => {
       button.addEventListener("click", () => showPage("friendsPage"));
     });
@@ -2799,10 +3024,16 @@
       users[username] = {
         passwordHash,
         bio: "",
+        private: false,
         followers: [],
         following: [],
         posts: [],
         favorites: [],
+        preferences: {
+          hideImages: false,
+          hideQuizzes: false,
+          hideGames: false,
+        },
         notifications: [],
       };
       saveUsers();
