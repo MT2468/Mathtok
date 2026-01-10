@@ -639,6 +639,44 @@
       color: #fff;
     }
 
+    .search-bar {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .search-bar input {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 999px;
+      color: inherit;
+      flex: 1;
+      padding: 10px 14px;
+    }
+
+    .search-bar button {
+      background: var(--surface-alt-color);
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      color: inherit;
+      cursor: pointer;
+      padding: 10px 14px;
+    }
+
+    .search-results {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 12px;
+    }
+
+    .search-user-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
     @media (min-width: 900px) {
       .discover-posts {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -924,6 +962,7 @@
     let activePostId = null;
     let activeGame = null;
     let discoverFilter = "all";
+    let discoverSearchQuery = "";
 
     function loadUsers() {
       const stored = localStorage.getItem(USERS_KEY);
@@ -2014,6 +2053,33 @@
       }
 
       discoverContent.innerHTML = "";
+      const searchBar = document.createElement("div");
+      searchBar.classList.add("search-bar");
+
+      const searchInput = document.createElement("input");
+      searchInput.type = "text";
+      searchInput.id = "searchInput";
+      searchInput.placeholder = "Buscar usuários ou posts...";
+      searchInput.value = discoverSearchQuery;
+
+      const searchButton = document.createElement("button");
+      searchButton.type = "button";
+      searchButton.id = "searchButton";
+      searchButton.innerHTML = "<i class=\"fa-solid fa-magnifying-glass\"></i>";
+      searchButton.setAttribute("aria-label", "Buscar");
+
+      searchButton.addEventListener("click", () => performSearch(searchInput.value));
+      searchInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          performSearch(searchInput.value);
+        }
+      });
+
+      searchBar.appendChild(searchInput);
+      searchBar.appendChild(searchButton);
+      discoverContent.appendChild(searchBar);
+
       const filters = [
         { label: "Todos", type: "all" },
         { label: "Imagens", type: "image" },
@@ -2041,6 +2107,99 @@
       });
 
       discoverContent.appendChild(filtersContainer);
+
+      if (discoverSearchQuery) {
+        const resultsSection = document.createElement("div");
+        resultsSection.classList.add("search-results");
+
+        const queryLabel = document.createElement("h3");
+        queryLabel.textContent = `Resultados da busca para "${discoverSearchQuery}"`;
+        resultsSection.appendChild(queryLabel);
+
+        const normalizedQuery = discoverSearchQuery.toLowerCase();
+        const tagQuery = discoverSearchQuery.startsWith("#")
+          ? discoverSearchQuery.slice(1).toLowerCase()
+          : null;
+
+        const matchedUsers = Object.keys(users).filter((username) => {
+          const user = users[username];
+          const usernameMatch = username.toLowerCase().includes(normalizedQuery);
+          const bioMatch = user?.bio?.toLowerCase().includes(normalizedQuery);
+          return usernameMatch || bioMatch;
+        });
+
+        const matchedPosts = posts.filter((post) => {
+          const captionText = (post.caption || "").toLowerCase();
+          const questionText = (post.question || "").toLowerCase();
+          const authorText = (post.author || "").toLowerCase();
+          if (tagQuery) {
+            const tagToken = `#${tagQuery}`;
+            return captionText.includes(tagToken) || questionText.includes(tagToken);
+          }
+          return (
+            captionText.includes(normalizedQuery) ||
+            questionText.includes(normalizedQuery) ||
+            authorText.includes(normalizedQuery)
+          );
+        });
+
+        const userSectionTitle = document.createElement("h4");
+        userSectionTitle.textContent = "Perfis encontrados";
+        resultsSection.appendChild(userSectionTitle);
+
+        const userList = document.createElement("div");
+        userList.classList.add("search-user-list");
+
+        if (matchedUsers.length === 0) {
+          const emptyUsers = document.createElement("p");
+          emptyUsers.textContent = "Nenhum usuário encontrado.";
+          userList.appendChild(emptyUsers);
+        } else {
+          matchedUsers.forEach((username) => {
+            const user = users[username];
+            const item = document.createElement("div");
+            item.classList.add("friend-item");
+            item.style.cursor = "pointer";
+            item.addEventListener("click", () => openProfile(username));
+
+            const name = document.createElement("div");
+            const title = document.createElement("strong");
+            title.textContent = `@${username}`;
+            name.appendChild(title);
+
+            const bio = document.createElement("p");
+            bio.textContent = user?.bio || "Sem bio ainda.";
+            name.appendChild(bio);
+
+            item.appendChild(name);
+            userList.appendChild(item);
+          });
+        }
+
+        resultsSection.appendChild(userList);
+
+        const postSectionTitle = document.createElement("h4");
+        postSectionTitle.textContent = "Posts encontrados";
+        resultsSection.appendChild(postSectionTitle);
+
+        const postList = document.createElement("div");
+        postList.classList.add("discover-posts");
+
+        if (matchedPosts.length === 0) {
+          const emptyPosts = document.createElement("p");
+          emptyPosts.textContent = "Nenhum post encontrado.";
+          postList.appendChild(emptyPosts);
+        } else {
+          matchedPosts.forEach((post) => {
+            const postCard = buildDiscoverPostCard(post);
+            postList.appendChild(postCard);
+          });
+        }
+
+        resultsSection.appendChild(postList);
+        discoverContent.appendChild(resultsSection);
+        return;
+      }
 
       if (discoverFilter !== "all") {
         const filteredTitle = document.createElement("h3");
@@ -2158,6 +2317,17 @@
 
     function applyDiscoverFilter(type) {
       discoverFilter = type;
+      renderDiscoverPage();
+    }
+
+    function performSearch(query) {
+      const trimmed = query.trim();
+      if (trimmed.length < 2) {
+        discoverSearchQuery = "";
+        renderDiscoverPage();
+        return;
+      }
+      discoverSearchQuery = trimmed;
       renderDiscoverPage();
     }
 
