@@ -1149,11 +1149,21 @@
       return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
+    function syncThemeToggles() {
+      const isLight = document.body.classList.contains("light-theme");
+      document
+        .querySelectorAll(".theme-toggle input[type='checkbox']")
+        .forEach((input) => {
+          input.checked = isLight;
+        });
+    }
+
     function applyTheme(theme) {
       const nextTheme = theme === "light" ? "light" : "dark";
       document.body.classList.remove("light-theme", "dark-theme");
       document.body.classList.add(`${nextTheme}-theme`);
       localStorage.setItem(THEME_KEY, nextTheme);
+      syncThemeToggles();
     }
 
     function createThemeToggle() {
@@ -1209,6 +1219,33 @@
       });
     }
 
+    function isPrivatePostHidden(post, currentUser) {
+      const authorData = users[post.author];
+      if (!authorData?.private) {
+        return false;
+      }
+
+      if (!currentUser) {
+        return true;
+      }
+
+      if (currentUser === post.author) {
+        return false;
+      }
+
+      return !users[currentUser]?.following?.includes(post.author);
+    }
+
+    function getUserPreferences(currentUser) {
+      const userData = currentUser ? users[currentUser] : null;
+      if (!userData) {
+        return { hideImages: false, hideQuizzes: false, hideGames: false };
+      }
+
+      normalizeUserPreferences(userData);
+      return userData.preferences;
+    }
+
     function openCreateModal() {
       resetCreateModal();
       createModal.classList.add("active");
@@ -1224,10 +1261,26 @@
     function renderFeed() {
       homePage.innerHTML = "";
 
-      const shuffled = [...posts].sort(() => Math.random() - 0.5);
+      const currentUser = getCurrentUser();
+      const preferences = getUserPreferences(currentUser);
+
+      let visiblePosts = posts.filter((post) => !isPrivatePostHidden(post, currentUser));
+
+      if (preferences.hideImages) {
+        visiblePosts = visiblePosts.filter((post) => post.type !== "image");
+      }
+      if (preferences.hideQuizzes) {
+        visiblePosts = visiblePosts.filter((post) => post.type !== "quiz");
+      }
+      if (preferences.hideGames) {
+        visiblePosts = visiblePosts.filter((post) => post.type !== "game");
+      }
+
+      const shuffled = [...visiblePosts].sort(() => Math.random() - 0.5);
       if (shuffled.length === 0) {
         const emptyState = document.createElement("p");
-        emptyState.textContent = "Nenhum post por aqui ainda. Crie o primeiro!";
+        emptyState.textContent =
+          "Nenhum post disponível com as preferências atuais. Ajuste seus filtros ou crie o primeiro!";
         homePage.appendChild(emptyState);
         return;
       }
@@ -1307,7 +1360,6 @@
         likeCount.textContent = post.likes.length;
         likeButton.appendChild(likeCount);
 
-        const currentUser = getCurrentUser();
         if (currentUser && post.likes.includes(currentUser)) {
           likeButton.classList.add("liked");
         }
@@ -1969,6 +2021,11 @@
         }
 
         saveUsers();
+
+        const homeIsVisible = homePage?.style.display === "block";
+        if (homeIsVisible) {
+          renderFeed();
+        }
       });
 
       settingsForm.dataset.bound = "true";
@@ -2124,6 +2181,18 @@
       profilePage.appendChild(stats);
       profilePage.appendChild(actions);
 
+      if (
+        targetData.private &&
+        username !== currentUser &&
+        !users[currentUser].following.includes(username)
+      ) {
+        const privateMessage = document.createElement("p");
+        privateMessage.textContent = "Esta conta é privada. Siga este usuário para visualizar os posts.";
+        profilePage.appendChild(privateMessage);
+        setVisiblePage("profilePage");
+        return;
+      }
+
       const postSection = document.createElement("div");
       postSection.classList.add("profile-section");
       const postTitle = document.createElement("h3");
@@ -2180,6 +2249,7 @@
       saveUsers();
       openProfile(targetUsername);
       renderFriendsPage();
+      renderFeed();
     }
 
     function renderFriendsPage() {
@@ -2322,6 +2392,9 @@
 
       discoverContent.appendChild(filtersContainer);
 
+      const currentUser = getCurrentUser();
+      const visiblePosts = posts.filter((post) => !isPrivatePostHidden(post, currentUser));
+
       if (discoverSearchQuery) {
         const resultsSection = document.createElement("div");
         resultsSection.classList.add("search-results");
@@ -2342,7 +2415,7 @@
           return usernameMatch || bioMatch;
         });
 
-        const matchedPosts = posts.filter((post) => {
+        const matchedPosts = visiblePosts.filter((post) => {
           const captionText = (post.caption || "").toLowerCase();
           const questionText = (post.question || "").toLowerCase();
           const authorText = (post.author || "").toLowerCase();
@@ -2422,7 +2495,7 @@
         const filteredContainer = document.createElement("div");
         filteredContainer.classList.add("discover-posts");
 
-        const filteredPosts = posts
+        const filteredPosts = visiblePosts
           .filter((post) => post.type === discoverFilter)
           .sort((a, b) => (b.id || 0) - (a.id || 0));
 
@@ -2451,7 +2524,7 @@
       tagsContainer.classList.add("trending-tags");
 
       const hashtagCounts = new Map();
-      const sourceTexts = posts.flatMap((post) => [post.caption, post.question]);
+      const sourceTexts = visiblePosts.flatMap((post) => [post.caption, post.question]);
 
       sourceTexts.forEach((text) => {
         if (!text) {
@@ -2502,7 +2575,7 @@
       const trendingContainer = document.createElement("div");
       trendingContainer.classList.add("discover-posts");
 
-      const trendingPosts = [...posts]
+      const trendingPosts = [...visiblePosts]
         .sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0))
         .slice(0, 5);
 
