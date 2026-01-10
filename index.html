@@ -604,6 +604,19 @@
       margin-left: 6px;
     }
 
+    .discover-posts {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1fr;
+      margin-top: 16px;
+    }
+
+    @media (min-width: 900px) {
+      .discover-posts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     .notification-icon {
       font-size: 18px;
       margin-top: 2px;
@@ -2024,14 +2037,150 @@
       const hint = document.createElement("p");
       hint.textContent = "Em breve você verá tendências e sugestões por aqui.";
 
+      const trendingTitle = document.createElement("h3");
+      trendingTitle.textContent = "Conteúdos do momento";
+
+      const trendingContainer = document.createElement("div");
+      trendingContainer.classList.add("discover-posts");
+
+      const trendingPosts = [...posts]
+        .sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0))
+        .slice(0, 5);
+
+      if (trendingPosts.length === 0) {
+        const emptyTrending = document.createElement("p");
+        emptyTrending.textContent = "Nenhum conteúdo em alta no momento.";
+        trendingContainer.appendChild(emptyTrending);
+      } else {
+        trendingPosts.forEach((post) => {
+          const postCard = buildDiscoverPostCard(post);
+          trendingContainer.appendChild(postCard);
+        });
+      }
+
       discoverContent.appendChild(tagTitle);
       discoverContent.appendChild(tagsContainer);
+      discoverContent.appendChild(trendingTitle);
+      discoverContent.appendChild(trendingContainer);
       discoverContent.appendChild(hint);
     }
 
     function filterByHashtag(tag) {
       // Placeholder: em breve vamos filtrar os posts por hashtag.
       console.log(`Filtro de hashtag selecionado: ${tag}`);
+    }
+
+    function buildDiscoverPostCard(post) {
+      const postElement = document.createElement("div");
+      postElement.classList.add("post");
+      postElement.dataset.id = post.id;
+
+      const content = document.createElement("div");
+      content.classList.add("post-content");
+
+      if (post.type === "image") {
+        const img = document.createElement("img");
+        img.src = post.imageUrl;
+        img.alt = post.caption ? `Imagem de ${post.author}` : "Imagem do post";
+        img.classList.add("post-image");
+        img.loading = "lazy";
+        content.appendChild(img);
+      }
+
+      if (post.type === "quiz") {
+        const quizContainer = document.createElement("div");
+        quizContainer.classList.add("quiz-container");
+
+        const question = document.createElement("p");
+        question.textContent = post.question;
+        quizContainer.appendChild(question);
+
+        const info = document.createElement("p");
+        info.textContent = "Abra o post no feed para responder.";
+        info.classList.add("modal-note");
+        quizContainer.appendChild(info);
+
+        content.appendChild(quizContainer);
+      }
+
+      if (post.type === "game") {
+        const canvas = document.createElement("canvas");
+        canvas.width = 320;
+        canvas.height = 160;
+        canvas.classList.add("game-replay-canvas");
+        content.appendChild(canvas);
+        playReplay(post, canvas);
+      }
+
+      const info = document.createElement("div");
+      info.classList.add("post-info");
+
+      const author = document.createElement("span");
+      author.classList.add("post-author");
+      author.textContent = `@${post.author}`;
+      author.addEventListener("click", () => {
+        openProfile(post.author);
+      });
+
+      info.appendChild(author);
+
+      if (post.type !== "quiz" && post.caption) {
+        const caption = document.createElement("p");
+        caption.textContent = post.caption;
+        info.appendChild(caption);
+      }
+
+      const actions = document.createElement("div");
+      actions.classList.add("post-actions");
+
+      const likeButton = document.createElement("button");
+      likeButton.type = "button";
+      likeButton.classList.add("action-button");
+      likeButton.innerHTML = "<i class=\"fa-solid fa-heart\"></i>";
+
+      const likeCount = document.createElement("span");
+      likeCount.textContent = post.likes.length;
+      likeButton.appendChild(likeCount);
+
+      const currentUser = getCurrentUser();
+      if (currentUser && post.likes.includes(currentUser)) {
+        likeButton.classList.add("liked");
+      }
+
+      likeButton.addEventListener("click", () => toggleLike(post.id));
+      actions.appendChild(likeButton);
+
+      const commentButton = document.createElement("button");
+      commentButton.type = "button";
+      commentButton.classList.add("action-button");
+      commentButton.innerHTML = "<i class=\"fa-regular fa-comment\"></i>";
+      const commentCount = document.createElement("span");
+      commentCount.textContent = post.comments.length;
+      commentButton.appendChild(commentCount);
+      commentButton.addEventListener("click", () => openComments(post.id));
+      actions.appendChild(commentButton);
+
+      const shareButton = document.createElement("button");
+      shareButton.type = "button";
+      shareButton.classList.add("action-button");
+      shareButton.innerHTML = "<i class=\"fa-solid fa-share\"></i>";
+      shareButton.addEventListener("click", () => sharePost(post.id));
+      actions.appendChild(shareButton);
+
+      const saveButton = document.createElement("button");
+      saveButton.type = "button";
+      saveButton.classList.add("action-button");
+      saveButton.innerHTML = "<i class=\"fa-regular fa-bookmark\"></i>";
+      if (currentUser && users[currentUser]?.favorites?.includes(post.id)) {
+        saveButton.classList.add("saved");
+      }
+      saveButton.addEventListener("click", () => toggleSave(post.id));
+      actions.appendChild(saveButton);
+
+      postElement.appendChild(content);
+      postElement.appendChild(info);
+      postElement.appendChild(actions);
+      return postElement;
     }
 
     function renderInboxPage() {
