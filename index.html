@@ -909,6 +909,33 @@
       padding: 10px 18px;
     }
 
+    .chat-message {
+      border-radius: 12px;
+      margin: 4px 0;
+      max-width: 70%;
+      padding: 10px 14px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      word-break: break-word;
+    }
+
+    .chat-message strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .chat-message.sent {
+      background: var(--accent-color, #3498db);
+      color: #fff;
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .chat-message.received {
+      background: var(--surface-color);
+      color: var(--text-color);
+      margin-right: auto;
+    }
+
     @media (min-width: 900px) {
       .discover-posts {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2422,7 +2449,26 @@
         const empty = document.createElement("p");
         empty.textContent = "Nenhuma mensagem ainda. Inicie a conversa!";
         chatMessages.appendChild(empty);
+        return;
       }
+
+      conversation.forEach((message) => {
+        const messageElement = document.createElement("div");
+        const isSender = message.sender === currentUser;
+        messageElement.classList.add("chat-message", isSender ? "sent" : "received");
+
+        const senderName = document.createElement("strong");
+        senderName.textContent = isSender ? "Você:" : `@${message.sender}`;
+
+        const messageText = document.createElement("div");
+        messageText.innerHTML = message.text;
+
+        messageElement.appendChild(senderName);
+        messageElement.appendChild(messageText);
+        chatMessages.appendChild(messageElement);
+      });
+
+      chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
     function openComments(postId) {
@@ -3987,7 +4033,49 @@
     if (chatForm) {
       chatForm.addEventListener("submit", (event) => {
         event.preventDefault();
-        // Envio de mensagens será implementado no próximo passo.
+        if (!chatInput || !activeChatUser) {
+          return;
+        }
+
+        const currentUser = getCurrentUser();
+        if (!currentUser || !users[activeChatUser]) {
+          return;
+        }
+
+        const rawMessage = chatInput.value.trim();
+        if (!rawMessage) {
+          return;
+        }
+
+        const validation = validateContent(rawMessage);
+        if (!validation.ok) {
+          alert(validation.message);
+          return;
+        }
+
+        normalizeUserMessages(users[currentUser]);
+        normalizeUserMessages(users[activeChatUser]);
+
+        const conversation = users[currentUser].conversations[activeChatUser] || [];
+        const receiverConversation =
+          users[activeChatUser].conversations[currentUser] || [];
+
+        const sanitizedMessage = sanitizeText(rawMessage).slice(0, 300);
+        const messagePayload = {
+          sender: currentUser,
+          text: sanitizedMessage,
+          timestamp: Date.now(),
+        };
+
+        conversation.push(messagePayload);
+        receiverConversation.push(messagePayload);
+
+        users[currentUser].conversations[activeChatUser] = conversation;
+        users[activeChatUser].conversations[currentUser] = receiverConversation;
+
+        saveUsers();
+        chatInput.value = "";
+        renderChatMessages(activeChatUser);
       });
     }
 
