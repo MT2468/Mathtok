@@ -1179,7 +1179,29 @@
     let posts = [];
     let loginFailures = 0;
     let loginLockTimer = null;
-    const bannedWords = ["palavrão", "ofensa", "idiota", "burro"];
+    const bannedWords = [
+      "palavrao",
+      "palavrão",
+      "ofensa",
+      "idiota",
+      "idiot",
+      "burro",
+      "burra",
+      "estupido",
+      "estúpido",
+      "estupida",
+      "estúpida",
+      "otario",
+      "otário",
+      "otaria",
+      "otária",
+      "droga",
+      "merda",
+      "bosta",
+      "lixo",
+      "imbecil",
+      "idiotice",
+    ];
 
     const authPage = document.getElementById("authPage");
     const mainApp = document.getElementById("mainApp");
@@ -1426,12 +1448,19 @@
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
+
+      const phoneRegex = /\b\d{4,5}[-.\s]?\d{4}\b/;
+      const emailRegex = /\b[\w.+-]+@[\w-]+\.[\w.-]+\b/;
+      if (phoneRegex.test(normalized) || emailRegex.test(normalized)) {
+        return true;
+      }
+
       return bannedWords.some((word) => normalized.includes(word));
     }
 
     function validateContent(text) {
       if (containsBannedWords(text)) {
-        return { ok: false, message: "Evite palavras impróprias no conteúdo." };
+        return { ok: false, message: "Evite conteúdo impróprio ou dados pessoais." };
       }
       return { ok: true };
     }
@@ -1726,6 +1755,17 @@
       }
       saveButton.addEventListener("click", () => toggleSave(post.id));
       actions.appendChild(saveButton);
+
+      if (currentUser && post.author !== currentUser) {
+        const reportButton = document.createElement("button");
+        reportButton.type = "button";
+        reportButton.classList.add("action-button");
+        reportButton.innerHTML = "<i class=\"fa-solid fa-flag\"></i>";
+        reportButton.setAttribute("aria-label", "Denunciar post");
+        reportButton.setAttribute("title", "Denunciar post");
+        reportButton.addEventListener("click", () => reportPost(post.id));
+        actions.appendChild(reportButton);
+      }
 
       postElement.appendChild(content);
       postElement.appendChild(info);
@@ -2142,6 +2182,43 @@
       renderFeed();
     }
 
+    function reportPost(postId) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        alert("Faça login para denunciar posts.");
+        return;
+      }
+
+      const confirmed = confirm("Você deseja denunciar este post como impróprio?");
+      if (!confirmed) {
+        return;
+      }
+
+      normalizeUserPreferences(users[currentUser]);
+      if (!users[currentUser].reported.includes(postId)) {
+        users[currentUser].reported.push(postId);
+      }
+
+      posts = posts.filter((post) => post.id !== postId);
+      Object.values(users).forEach((user) => {
+        if (Array.isArray(user.favorites)) {
+          user.favorites = user.favorites.filter((favoriteId) => favoriteId !== postId);
+        }
+      });
+
+      savePosts();
+      saveUsers();
+      renderFeed();
+      if (discoverPage?.style.display === "block") {
+        renderDiscoverPage();
+      }
+      const friendsPageElement = document.getElementById("friendsPage");
+      if (friendsPageElement?.style.display === "block") {
+        renderFriendsPage();
+      }
+      alert("Post denunciado. Ele não aparecerá mais para você.");
+    }
+
     function openComments(postId) {
       const post = posts.find((item) => item.id === postId);
       if (!post) {
@@ -2353,6 +2430,9 @@
       user.preferences.hideQuizzes = Boolean(user.preferences.hideQuizzes);
       user.preferences.hideGames = Boolean(user.preferences.hideGames);
       user.preferences.highContrast = Boolean(user.preferences.highContrast);
+      if (!Array.isArray(user.reported)) {
+        user.reported = [];
+      }
       normalizeUserPoints(user);
       normalizeUserVerification(user);
     }
@@ -3284,6 +3364,17 @@
       saveButton.addEventListener("click", () => toggleSave(post.id));
       actions.appendChild(saveButton);
 
+      if (currentUser && post.author !== currentUser) {
+        const reportButton = document.createElement("button");
+        reportButton.type = "button";
+        reportButton.classList.add("action-button");
+        reportButton.innerHTML = "<i class=\"fa-solid fa-flag\"></i>";
+        reportButton.setAttribute("aria-label", "Denunciar post");
+        reportButton.setAttribute("title", "Denunciar post");
+        reportButton.addEventListener("click", () => reportPost(post.id));
+        actions.appendChild(reportButton);
+      }
+
       postElement.appendChild(content);
       postElement.appendChild(info);
       postElement.appendChild(actions);
@@ -3762,6 +3853,7 @@
         isVerified: false,
         notifications: [],
         answered: {},
+        reported: [],
       };
       saveUsers();
       registerForm.reset();
