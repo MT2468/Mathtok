@@ -511,6 +511,7 @@
 
     .profile-stats {
       display: flex;
+      flex-wrap: wrap;
       gap: 16px;
       margin: 12px 0;
     }
@@ -1804,6 +1805,10 @@
       const likeIndex = post.likes.indexOf(currentUser);
       if (likeIndex === -1) {
         post.likes.push(currentUser);
+        addUserPoints(currentUser, 1);
+        if (post.author && post.author !== currentUser) {
+          addUserPoints(post.author, 2);
+        }
         addNotification(post.author, {
           type: "like",
           from: currentUser,
@@ -1814,6 +1819,7 @@
       }
 
       savePosts();
+      saveUsers();
       renderFeed();
     }
 
@@ -1890,7 +1896,9 @@
       };
 
       post.comments.push(comment);
+      addUserPoints(currentUser, 2);
       savePosts();
+      saveUsers();
 
       if (parentId) {
         const parentComment = post.comments.find((item) => item.id === parentId);
@@ -2009,6 +2017,21 @@
       user.preferences.hideImages = Boolean(user.preferences.hideImages);
       user.preferences.hideQuizzes = Boolean(user.preferences.hideQuizzes);
       user.preferences.hideGames = Boolean(user.preferences.hideGames);
+      normalizeUserPoints(user);
+    }
+
+    function normalizeUserPoints(user) {
+      if (user.points === undefined) {
+        user.points = 0;
+      }
+    }
+
+    function addUserPoints(username, amount) {
+      if (!username || !users[username]) {
+        return;
+      }
+      normalizeUserPoints(users[username]);
+      users[username].points += amount;
     }
 
     function renderSettingsPage() {
@@ -2111,6 +2134,7 @@
     }
 
     function renderProfileHeader(user, isCurrentUser) {
+      normalizeUserPoints(user);
       const header = document.createElement("div");
       header.classList.add("profile-header");
 
@@ -2138,9 +2162,12 @@
       const postCount = document.createElement("span");
       const userPosts = posts.filter((post) => post.author === user.username);
       postCount.textContent = `${userPosts.length} Posts`;
+      const pointsCount = document.createElement("span");
+      pointsCount.textContent = `${user.points} Pontos`;
       stats.appendChild(followerCount);
       stats.appendChild(followingCount);
       stats.appendChild(postCount);
+      stats.appendChild(pointsCount);
 
       const actions = document.createElement("div");
       actions.classList.add("profile-actions");
@@ -2990,7 +3017,9 @@
       };
 
       posts.unshift(post);
+      addUserPoints(currentUser, 5);
       savePosts();
+      saveUsers();
       closeCreateModal();
       renderFeed();
     });
@@ -3061,7 +3090,9 @@
       };
 
       posts.unshift(post);
+      addUserPoints(currentUser, 5);
       savePosts();
+      saveUsers();
       closeCreateModal();
       renderFeed();
     });
@@ -3102,7 +3133,9 @@
       };
 
       posts.unshift(post);
+      addUserPoints(currentUser, 5);
       savePosts();
+      saveUsers();
       stopActiveGame();
       closeGameOverlay();
       renderFeed();
@@ -3207,6 +3240,7 @@
           hideQuizzes: false,
           hideGames: false,
         },
+        points: 0,
         notifications: [],
       };
       saveUsers();
