@@ -508,6 +508,100 @@
       width: 100%;
     }
 
+    .memory-game {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: min(520px, 100%);
+    }
+
+    .memory-status {
+      color: var(--muted-text-color);
+      font-size: 14px;
+    }
+
+    .memory-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    }
+
+    .memory-card {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .memory-card[disabled] {
+      cursor: default;
+      opacity: 0.7;
+    }
+
+    .memory-card-inner {
+      align-items: center;
+      background: #1d2b45;
+      border: 2px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      display: flex;
+      font-size: 28px;
+      height: 100%;
+      justify-content: center;
+      min-height: 72px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.35s ease;
+      width: 100%;
+    }
+
+    .memory-card.is-flipped .memory-card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .memory-card.is-matched .memory-card-inner {
+      border-color: #2ecc71;
+      box-shadow: 0 0 12px rgba(46, 204, 113, 0.45);
+    }
+
+    .memory-card-face {
+      backface-visibility: hidden;
+      position: absolute;
+    }
+
+    .memory-card-front {
+      transform: rotateY(180deg);
+    }
+
+    .memory-card-back {
+      color: #9ad7ff;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    .memory-replay-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(4, minmax(40px, 1fr));
+      max-width: 320px;
+      width: 100%;
+    }
+
+    .memory-replay-card {
+      align-items: center;
+      background: #1d2b45;
+      border-radius: 10px;
+      color: #fff;
+      display: flex;
+      font-size: 20px;
+      height: 48px;
+      justify-content: center;
+    }
+
+    .memory-replay-card.is-hidden {
+      color: transparent;
+    }
+
     .game-canvas.is-hidden {
       display: none;
     }
@@ -1551,6 +1645,13 @@
             >
               Jogo 3: Corrida Infinita
             </button>
+            <button
+              class="secondary-button game-select-button"
+              type="button"
+              data-game-select="memory"
+            >
+              Jogo 4: Memória
+            </button>
           </div>
           <p class="modal-note" id="gameSelectionHint">
             O jogo iniciará ao clicar em “Iniciar jogo”.
@@ -1608,6 +1709,11 @@
         <canvas id="gameCanvas" class="game-canvas" width="800" height="400"></canvas>
         <canvas id="flappyCanvas" class="game-canvas is-hidden" width="800" height="600"></canvas>
         <canvas id="endlessCanvas" class="game-canvas is-hidden" width="800" height="400"></canvas>
+        <div id="memoryGame" class="memory-game is-hidden" aria-live="polite">
+          <p class="memory-status" id="memoryStatus">Encontre todos os pares.</p>
+          <div class="memory-grid" id="memoryGrid" role="grid"></div>
+          <p class="memory-status" id="memoryMoves">Tentativas: 0</p>
+        </div>
         <p id="gameMessage" class="modal-note"></p>
         <div class="modal-actions">
           <button class="primary-button" type="button" id="publishGameButton" disabled>Publicar gameplay</button>
@@ -1728,6 +1834,10 @@
     const gameCanvas = document.getElementById("gameCanvas");
     const flappyCanvas = document.getElementById("flappyCanvas");
     const endlessCanvas = document.getElementById("endlessCanvas");
+    const memoryGame = document.getElementById("memoryGame");
+    const memoryGrid = document.getElementById("memoryGrid");
+    const memoryStatus = document.getElementById("memoryStatus");
+    const memoryMoves = document.getElementById("memoryMoves");
     const gameMessage = document.getElementById("gameMessage");
     const gameModeLabel = document.getElementById("gameModeLabel");
     const publishGameButton = document.getElementById("publishGameButton");
@@ -2308,14 +2418,20 @@
       }
 
       if (post.type === "game") {
-        const canvas = document.createElement("canvas");
         const gameType = post.gameData?.gameType;
-        canvas.width = 320;
-        canvas.height =
-          gameType === "flappy" ? 240 : gameType === "endless" ? 180 : 160;
-        canvas.classList.add("game-replay-canvas");
-        content.appendChild(canvas);
-        playReplay(post, canvas);
+        if (gameType === "memory") {
+          const memoryContainer = document.createElement("div");
+          content.appendChild(memoryContainer);
+          playReplay(post, memoryContainer);
+        } else {
+          const canvas = document.createElement("canvas");
+          canvas.width = 320;
+          canvas.height =
+            gameType === "flappy" ? 240 : gameType === "endless" ? 180 : 160;
+          canvas.classList.add("game-replay-canvas");
+          content.appendChild(canvas);
+          playReplay(post, canvas);
+        }
       }
 
       const info = document.createElement("div");
@@ -2503,6 +2619,12 @@
         endlessCanvas.removeEventListener("pointerdown", activeGame.handleEndlessJump);
         endlessCanvas.removeEventListener("touchstart", activeGame.handleEndlessJump);
       }
+      if (activeGame.handleMemoryCardClick && memoryGrid) {
+        memoryGrid.removeEventListener("click", activeGame.handleMemoryCardClick);
+      }
+      if (activeGame.flipTimeout) {
+        clearTimeout(activeGame.flipTimeout);
+      }
       activeGame = null;
     }
 
@@ -2523,15 +2645,22 @@
     function updateGameOverlayView() {
       const isFlappy = selectedGameType === "flappy";
       const isEndless = selectedGameType === "endless";
-      gameCanvas.classList.toggle("is-hidden", isFlappy || isEndless);
+      const isMemory = selectedGameType === "memory";
+      gameCanvas.classList.toggle("is-hidden", isFlappy || isEndless || isMemory);
       flappyCanvas.classList.toggle("is-hidden", !isFlappy);
       endlessCanvas.classList.toggle("is-hidden", !isEndless);
-      restartGameButton.classList.toggle("is-hidden", !(isFlappy || isEndless));
+      if (memoryGame) {
+        memoryGame.classList.toggle("is-hidden", !isMemory);
+      }
+      restartGameButton.classList.toggle("is-hidden", !(isFlappy || isEndless || isMemory));
+      restartGameButton.textContent = isMemory ? "Jogar novamente" : "Tentar novamente";
       if (gameModeLabel) {
         const label = isFlappy
           ? "Flappy Bird"
           : isEndless
             ? "Corrida Infinita"
+            : isMemory
+              ? "Memória"
             : "Corrida";
         gameModeLabel.textContent = `Jogo selecionado: ${label}`;
       }
@@ -2570,6 +2699,18 @@
       activeGame.duration = activeGame.elapsed;
       const distanceLabel = Math.round(activeGame.distance);
       gameMessage.textContent = `${statusMessage} Distância: ${distanceLabel} m.`;
+      publishGameButton.disabled = false;
+      restartGameButton.classList.remove("is-hidden");
+    }
+
+    function endMemoryGame(statusMessage) {
+      if (!activeGame || activeGame.ended) {
+        return;
+      }
+      activeGame.ended = true;
+      activeGame.running = false;
+      activeGame.duration = activeGame.elapsed;
+      gameMessage.textContent = `${statusMessage} Tentativas: ${activeGame.attempts}.`;
       publishGameButton.disabled = false;
       restartGameButton.classList.remove("is-hidden");
     }
@@ -3160,11 +3301,151 @@
       activeGame.animationId = requestAnimationFrame(update);
     }
 
+    function startMemoryGame() {
+      closeCreateModal();
+      stopActiveGame();
+      openGameOverlay();
+      gameMessage.textContent = "";
+      publishGameButton.disabled = true;
+      restartGameButton.classList.add("is-hidden");
+      updateGameOverlayView();
+
+      const emojis = ["😀", "🐱", "🍕", "⚽", "🎵", "💡"];
+      const deck = [...emojis, ...emojis].sort(() => Math.random() - 0.5);
+      const cards = deck.map((emoji, index) => ({
+        id: index,
+        emoji,
+        matched: false,
+      }));
+
+      if (memoryStatus) {
+        memoryStatus.textContent = "Encontre todos os pares.";
+      }
+      if (memoryMoves) {
+        memoryMoves.textContent = "Tentativas: 0";
+      }
+      if (memoryGrid) {
+        memoryGrid.innerHTML = "";
+      }
+
+      const startTime = performance.now();
+      activeGame = {
+        type: "memory",
+        cards,
+        board: deck,
+        flipped: [],
+        lockBoard: false,
+        attempts: 0,
+        matches: 0,
+        inputs: [],
+        spawnEvents: [],
+        moves: [],
+        startTime,
+        elapsed: 0,
+        running: true,
+        ended: false,
+        duration: 0,
+        handleMemoryCardClick: null,
+        flipTimeout: null,
+      };
+
+      cards.forEach((card) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.classList.add("memory-card");
+        button.setAttribute("data-card-index", String(card.id));
+        button.setAttribute("aria-label", "Carta do jogo da memória");
+
+        const inner = document.createElement("span");
+        inner.classList.add("memory-card-inner");
+
+        const front = document.createElement("span");
+        front.classList.add("memory-card-face", "memory-card-front");
+        front.textContent = card.emoji;
+
+        const back = document.createElement("span");
+        back.classList.add("memory-card-face", "memory-card-back");
+        back.textContent = "MT";
+
+        inner.appendChild(front);
+        inner.appendChild(back);
+        button.appendChild(inner);
+        memoryGrid.appendChild(button);
+      });
+
+      const handleCardClick = (event) => {
+        const target = event.target.closest("[data-card-index]");
+        if (!target || !activeGame || activeGame.lockBoard) {
+          return;
+        }
+
+        const cardIndex = Number(target.dataset.cardIndex);
+        const card = activeGame.cards[cardIndex];
+        if (!card || card.matched || activeGame.flipped.includes(cardIndex)) {
+          return;
+        }
+
+        target.classList.add("is-flipped");
+        activeGame.flipped.push(cardIndex);
+        activeGame.moves.push({
+          time: performance.now() - startTime,
+          index: cardIndex,
+        });
+
+        if (activeGame.flipped.length < 2) {
+          return;
+        }
+
+        activeGame.attempts += 1;
+        if (memoryMoves) {
+          memoryMoves.textContent = `Tentativas: ${activeGame.attempts}`;
+        }
+
+        const [firstIndex, secondIndex] = activeGame.flipped;
+        const firstCard = activeGame.cards[firstIndex];
+        const secondCard = activeGame.cards[secondIndex];
+
+        if (firstCard.emoji === secondCard.emoji) {
+          firstCard.matched = true;
+          secondCard.matched = true;
+          activeGame.flipped = [];
+          activeGame.matches += 1;
+
+          const matchedButtons = memoryGrid.querySelectorAll(".memory-card.is-flipped");
+          matchedButtons.forEach((button) => button.classList.add("is-matched"));
+
+          if (activeGame.matches === emojis.length) {
+            activeGame.elapsed = performance.now() - startTime;
+            if (memoryStatus) {
+              memoryStatus.textContent = "Parabéns! Você encontrou todos os pares.";
+            }
+            endMemoryGame("Jogo concluído!");
+          }
+          return;
+        }
+
+        activeGame.lockBoard = true;
+        activeGame.flipTimeout = window.setTimeout(() => {
+          const firstButton = memoryGrid.querySelector(`[data-card-index="${firstIndex}"]`);
+          const secondButton = memoryGrid.querySelector(`[data-card-index="${secondIndex}"]`);
+          firstButton?.classList.remove("is-flipped");
+          secondButton?.classList.remove("is-flipped");
+          activeGame.flipped = [];
+          activeGame.lockBoard = false;
+        }, 900);
+      };
+
+      activeGame.handleMemoryCardClick = handleCardClick;
+      memoryGrid.addEventListener("click", handleCardClick);
+    }
+
     function startGame() {
       if (selectedGameType === "flappy") {
         startFlappyGame();
       } else if (selectedGameType === "endless") {
         startEndlessRunnerGame();
+      } else if (selectedGameType === "memory") {
+        startMemoryGame();
       } else {
         startRunnerGame();
       }
@@ -3180,6 +3461,8 @@
         playFlappyReplay(data, canvas);
       } else if (data.gameType === "endless") {
         playEndlessRunnerReplay(data, canvas);
+      } else if (data.gameType === "memory") {
+        playMemoryReplay(data, canvas);
       } else {
         playRunnerReplay(data, canvas);
       }
@@ -3514,6 +3797,66 @@
         ctx.fillText(`Distância: ${Math.round(distance / 4)} m`, 8, 18);
 
         if (elapsed < duration) {
+          requestAnimationFrame(step);
+        }
+      };
+
+      requestAnimationFrame(step);
+    }
+
+    function playMemoryReplay(data, container) {
+      if (!container) {
+        return;
+      }
+
+      const board = Array.isArray(data.board) ? data.board : [];
+      const moves = Array.isArray(data.moves) ? data.moves : [];
+      if (board.length === 0) {
+        return;
+      }
+      container.innerHTML = "";
+      container.classList.add("memory-replay-grid");
+
+      const cardElements = board.map((emoji) => {
+        const card = document.createElement("div");
+        card.classList.add("memory-replay-card", "is-hidden");
+        card.textContent = emoji;
+        container.appendChild(card);
+        return card;
+      });
+
+      const startTime = performance.now();
+      let moveIndex = 0;
+      let pendingFlip = null;
+
+      const step = (now) => {
+        const elapsed = now - startTime;
+
+        while (moveIndex < moves.length && moves[moveIndex].time <= elapsed) {
+          const move = moves[moveIndex];
+          const card = cardElements[move.index];
+          if (card) {
+            card.classList.toggle("is-hidden");
+            if (!pendingFlip) {
+              pendingFlip = move.index;
+            } else if (pendingFlip !== move.index) {
+              const firstIndex = pendingFlip;
+              const secondIndex = move.index;
+              const firstEmoji = board[firstIndex];
+              const secondEmoji = board[secondIndex];
+              if (firstEmoji !== secondEmoji) {
+                window.setTimeout(() => {
+                  cardElements[firstIndex]?.classList.add("is-hidden");
+                  cardElements[secondIndex]?.classList.add("is-hidden");
+                }, 600);
+              }
+              pendingFlip = null;
+            }
+          }
+          moveIndex += 1;
+        }
+
+        if (moveIndex < moves.length) {
           requestAnimationFrame(step);
         }
       };
@@ -4915,14 +5258,20 @@
       }
 
       if (post.type === "game") {
-        const canvas = document.createElement("canvas");
         const gameType = post.gameData?.gameType;
-        canvas.width = 320;
-        canvas.height =
-          gameType === "flappy" ? 240 : gameType === "endless" ? 180 : 160;
-        canvas.classList.add("game-replay-canvas");
-        content.appendChild(canvas);
-        playReplay(post, canvas);
+        if (gameType === "memory") {
+          const memoryContainer = document.createElement("div");
+          content.appendChild(memoryContainer);
+          playReplay(post, memoryContainer);
+        } else {
+          const canvas = document.createElement("canvas");
+          canvas.width = 320;
+          canvas.height =
+            gameType === "flappy" ? 240 : gameType === "endless" ? 180 : 160;
+          canvas.classList.add("game-replay-canvas");
+          content.appendChild(canvas);
+          playReplay(post, canvas);
+        }
       }
 
       const info = document.createElement("div");
@@ -5304,6 +5653,8 @@
         startFlappyGame();
       } else if (selectedGameType === "endless") {
         startEndlessRunnerGame();
+      } else if (selectedGameType === "memory") {
+        startMemoryGame();
       } else {
         startRunnerGame();
       }
@@ -5327,18 +5678,27 @@
       const expiresAt = getExpirationTimestamp(durationHours);
       const isFlappy = activeGame.type === "flappy";
       const isEndless = activeGame.type === "endless";
+      const isMemory = activeGame.type === "memory";
       const scoreLabel = isFlappy
         ? `${activeGame.score} pts`
         : isEndless
           ? `${Math.round(activeGame.distance)} m`
-          : `${(activeGame.duration / 1000).toFixed(2)}s`;
+          : isMemory
+            ? `${activeGame.attempts} tentativas`
+            : `${(activeGame.duration / 1000).toFixed(2)}s`;
       const post = {
         id: getNextPostId(),
         type: "game",
         author: currentUser,
         timestamp: Date.now(),
         caption: `Gameplay ${
-          isFlappy ? "Flappy Bird" : isEndless ? "Corrida Infinita" : "Corrida"
+          isFlappy
+            ? "Flappy Bird"
+            : isEndless
+              ? "Corrida Infinita"
+              : isMemory
+                ? "Memória"
+                : "Corrida"
         } - ${scoreLabel}`,
         gameData: {
           gameType: activeGame.type,
@@ -5364,6 +5724,9 @@
           baseSpeedRatio: activeGame.baseSpeedRatio,
           speedGrowthRatio: activeGame.speedGrowthRatio,
           maxSpeedRatio: activeGame.maxSpeedRatio,
+          board: activeGame.board,
+          moves: activeGame.moves,
+          attempts: activeGame.attempts,
         },
         likes: [],
         saves: [],
