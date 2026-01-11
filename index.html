@@ -484,6 +484,36 @@
       width: 100%;
     }
 
+    #flappyCanvas {
+      background: #7cc8ff;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      display: block;
+      height: auto;
+      margin-top: 12px;
+      max-height: 80vh;
+      max-width: 100%;
+      width: 100%;
+    }
+
+    .game-canvas.is-hidden {
+      display: none;
+    }
+
+    .is-hidden {
+      display: none;
+    }
+
+    .game-selector {
+      display: grid;
+      gap: 12px;
+    }
+
+    .game-select-button.is-active {
+      border-color: #ff2d55;
+      box-shadow: 0 0 0 1px rgba(255, 45, 85, 0.4);
+    }
+
     .game-replay-canvas {
       background: var(--game-bg);
       border: 1px solid var(--border-color);
@@ -1486,7 +1516,26 @@
         </form>
 
         <div id="formGame" class="form-section">
-          <p class="modal-note">O jogo iniciará ao clicar em “Iniciar jogo”.</p>
+          <p class="modal-note">Selecione um minigame para gravar sua jogada.</p>
+          <div class="game-selector" id="gameSelector">
+            <button
+              class="secondary-button game-select-button is-active"
+              type="button"
+              data-game-select="runner"
+            >
+              Jogo 1: Corrida
+            </button>
+            <button
+              class="secondary-button game-select-button"
+              type="button"
+              data-game-select="flappy"
+            >
+              Jogo 2: Flappy Bird
+            </button>
+          </div>
+          <p class="modal-note" id="gameSelectionHint">
+            O jogo iniciará ao clicar em “Iniciar jogo”.
+          </p>
           <div>
             <label for="postDurationGame">Duração do post</label>
             <select id="postDurationGame" name="postDuration">
@@ -1533,11 +1582,16 @@
     <div id="gameOverlay" class="modal" aria-hidden="true">
       <div class="modal-content" tabindex="-1">
         <h3>Minigame</h3>
+        <p class="modal-note" id="gameModeLabel">
+          Jogo selecionado: Corrida
+        </p>
         <p class="modal-note">Desvie dos obstáculos e registre sua gameplay.</p>
-        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <canvas id="gameCanvas" class="game-canvas" width="800" height="400"></canvas>
+        <canvas id="flappyCanvas" class="game-canvas is-hidden" width="800" height="600"></canvas>
         <p id="gameMessage" class="modal-note"></p>
         <div class="modal-actions">
           <button class="primary-button" type="button" id="publishGameButton" disabled>Publicar gameplay</button>
+          <button class="secondary-button is-hidden" type="button" id="restartGameButton">Tentar novamente</button>
           <button class="secondary-button" type="button" id="cancelGameButton">Cancelar</button>
           <button class="secondary-button" type="button" id="exitGame">Sair</button>
         </div>
@@ -1652,10 +1706,14 @@
     const commentsSubtitle = document.getElementById("commentsSubtitle");
     const gameOverlay = document.getElementById("gameOverlay");
     const gameCanvas = document.getElementById("gameCanvas");
+    const flappyCanvas = document.getElementById("flappyCanvas");
     const gameMessage = document.getElementById("gameMessage");
+    const gameModeLabel = document.getElementById("gameModeLabel");
     const publishGameButton = document.getElementById("publishGameButton");
+    const restartGameButton = document.getElementById("restartGameButton");
     const cancelGameButton = document.getElementById("cancelGameButton");
     const exitGameButton = document.getElementById("exitGame");
+    const gameSelector = document.getElementById("gameSelector");
     const settingsPage = document.getElementById("settingsPage");
     const settingsForm = document.getElementById("settingsForm");
     const settingsBackButton = document.getElementById("settingsBackButton");
@@ -1669,6 +1727,7 @@
     const emojiPicker = document.getElementById("emojiPicker");
     let activePostId = null;
     let activeGame = null;
+    let selectedGameType = "runner";
     let discoverFilter = "all";
     let discoverSearchQuery = "";
     let lastFocusedElement = null;
@@ -1946,6 +2005,7 @@
         randomQuizButton.disabled = false;
         randomQuizButton.textContent = "Pergunta Aleatória";
       }
+      setSelectedGameType("runner");
       setActiveForm("chooseType");
     }
 
@@ -1954,6 +2014,24 @@
       sections.forEach((section) => {
         section.classList.toggle("active", section.id === sectionId);
       });
+    }
+
+    function setSelectedGameType(type) {
+      selectedGameType = type;
+      if (gameModeLabel) {
+        const label = type === "flappy" ? "Flappy Bird" : "Corrida";
+        gameModeLabel.textContent = `Jogo selecionado: ${label}`;
+      }
+      if (gameSelector) {
+        gameSelector
+          .querySelectorAll("[data-game-select]")
+          .forEach((button) => {
+            button.classList.toggle(
+              "is-active",
+              button.dataset.gameSelect === selectedGameType
+            );
+          });
+      }
     }
 
     async function loadRandomQuizQuestion() {
@@ -2209,8 +2287,9 @@
 
       if (post.type === "game") {
         const canvas = document.createElement("canvas");
-        canvas.width = 320;
-        canvas.height = 160;
+        const gameType = post.gameData?.gameType;
+        canvas.width = gameType === "flappy" ? 320 : 320;
+        canvas.height = gameType === "flappy" ? 240 : 160;
         canvas.classList.add("game-replay-canvas");
         content.appendChild(canvas);
         playReplay(post, canvas);
@@ -2373,6 +2452,7 @@
       gameOverlay.removeAttribute("aria-modal");
       gameMessage.textContent = "";
       publishGameButton.disabled = true;
+      restartGameButton.classList.add("is-hidden");
       if (lastFocusedElement instanceof HTMLElement) {
         lastFocusedElement.focus();
       }
@@ -2390,10 +2470,39 @@
         gameCanvas.removeEventListener("pointerdown", activeGame.handleJump);
         gameCanvas.removeEventListener("touchstart", activeGame.handleJump);
       }
+      if (activeGame.handleFlap) {
+        window.removeEventListener("keydown", activeGame.handleFlap);
+        flappyCanvas.removeEventListener("pointerdown", activeGame.handleFlap);
+        flappyCanvas.removeEventListener("touchstart", activeGame.handleFlap);
+      }
       activeGame = null;
     }
 
-    function endGame(statusMessage) {
+    function resizeGameCanvas(canvas, baseWidth, baseHeight, maxHeightRatio = 0.7) {
+      const parent = canvas.parentElement;
+      const availableWidth = parent ? parent.clientWidth : baseWidth;
+      let width = Math.min(baseWidth, availableWidth);
+      let height = Math.round(width * (baseHeight / baseWidth));
+      const maxHeight = Math.round(window.innerHeight * maxHeightRatio);
+      if (height > maxHeight) {
+        height = maxHeight;
+        width = Math.round(height * (baseWidth / baseHeight));
+      }
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    function updateGameOverlayView() {
+      const isFlappy = selectedGameType === "flappy";
+      gameCanvas.classList.toggle("is-hidden", isFlappy);
+      flappyCanvas.classList.toggle("is-hidden", !isFlappy);
+      restartGameButton.classList.toggle("is-hidden", !isFlappy);
+      if (gameModeLabel) {
+        gameModeLabel.textContent = `Jogo selecionado: ${isFlappy ? "Flappy Bird" : "Corrida"}`;
+      }
+    }
+
+    function endRunnerGame(statusMessage) {
       if (!activeGame || activeGame.ended) {
         return;
       }
@@ -2405,14 +2514,27 @@
       publishGameButton.disabled = false;
     }
 
-    function startGame() {
+    function endFlappyGame(statusMessage) {
+      if (!activeGame || activeGame.ended) {
+        return;
+      }
+      activeGame.ended = true;
+      activeGame.running = false;
+      activeGame.duration = activeGame.elapsed;
+      gameMessage.textContent = `${statusMessage} Pontuação: ${activeGame.score} pontos.`;
+      publishGameButton.disabled = false;
+      restartGameButton.classList.remove("is-hidden");
+    }
+
+    function startRunnerGame() {
       closeCreateModal();
       stopActiveGame();
       openGameOverlay();
       gameMessage.textContent = "";
       publishGameButton.disabled = true;
-      gameCanvas.width = 800;
-      gameCanvas.height = 400;
+      restartGameButton.classList.add("is-hidden");
+      updateGameOverlayView();
+      resizeGameCanvas(gameCanvas, 800, 400, 0.6);
 
       const ctx = gameCanvas.getContext("2d");
       const player = {
@@ -2441,6 +2563,7 @@
 
       activeGame = {
         ctx,
+        type: "runner",
         player,
         groundLevel,
         gravity,
@@ -2556,11 +2679,11 @@
         });
 
         if (collision) {
-          endGame("Game Over! Você colidiu com um obstáculo.");
+          endRunnerGame("Game Over! Você colidiu com um obstáculo.");
         }
 
         if (elapsed >= maxDuration) {
-          endGame("Você venceu!");
+          endRunnerGame("Você venceu!");
         }
 
         ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
@@ -2589,12 +2712,224 @@
       activeGame.animationId = requestAnimationFrame(update);
     }
 
+    function startFlappyGame() {
+      closeCreateModal();
+      stopActiveGame();
+      openGameOverlay();
+      gameMessage.textContent = "";
+      publishGameButton.disabled = true;
+      restartGameButton.classList.add("is-hidden");
+      updateGameOverlayView();
+      resizeGameCanvas(flappyCanvas, 800, 600, 0.75);
+
+      const ctx = flappyCanvas.getContext("2d");
+      const bird = {
+        x: flappyCanvas.width * 0.25,
+        y: flappyCanvas.height * 0.5,
+        size: 24,
+        velocityY: 0,
+      };
+      const gravity = 0.35;
+      const flapStrength = -5.8;
+      const pipeGap = 160;
+      const pipeWidth = 64;
+      const pipeSpeed = 2.6;
+      const spawnInterval = 2000;
+      const pipes = [];
+      const inputs = [];
+      const spawnEvents = [];
+      const startTime = performance.now();
+      let lastTime = startTime;
+      let nextSpawnTime = startTime + spawnInterval;
+      let score = 0;
+
+      activeGame = {
+        ctx,
+        type: "flappy",
+        bird,
+        gravity,
+        flapStrength,
+        pipeGap,
+        pipeWidth,
+        pipeSpeed,
+        pipes,
+        inputs,
+        spawnEvents,
+        startTime,
+        lastTime,
+        elapsed: 0,
+        running: true,
+        ended: false,
+        duration: 0,
+        score: 0,
+        animationId: null,
+        handleFlap: null,
+      };
+
+      const handleFlap = (event) => {
+        if (!activeGame || !activeGame.running) {
+          return;
+        }
+        if (event.type === "keydown") {
+          if (!["Space", "ArrowUp", "KeyW"].includes(event.code)) {
+            return;
+          }
+          if (event.code === "Space") {
+            event.preventDefault();
+          }
+        }
+        bird.velocityY = flapStrength;
+        inputs.push(performance.now() - startTime);
+      };
+
+      activeGame.handleFlap = handleFlap;
+      window.addEventListener("keydown", handleFlap);
+      flappyCanvas.addEventListener("pointerdown", handleFlap);
+      flappyCanvas.addEventListener("touchstart", handleFlap, { passive: true });
+
+      const spawnPipes = (timeStamp) => {
+        const minGapTop = 60;
+        const maxGapTop = flappyCanvas.height - pipeGap - 80;
+        const gapTop = minGapTop + Math.random() * (maxGapTop - minGapTop);
+        pipes.push({
+          x: flappyCanvas.width,
+          gapTop,
+          scored: false,
+        });
+        spawnEvents.push({
+          time: timeStamp - startTime,
+          gapTop,
+        });
+      };
+
+      const update = (now) => {
+        if (!activeGame || !activeGame.running) {
+          return;
+        }
+
+        const elapsed = now - startTime;
+        activeGame.elapsed = elapsed;
+        const frameFactor = (now - lastTime) / 16.67;
+        lastTime = now;
+
+        if (now >= nextSpawnTime) {
+          spawnPipes(now);
+          nextSpawnTime = now + spawnInterval;
+        }
+
+        bird.velocityY += gravity * frameFactor;
+        bird.y += bird.velocityY * frameFactor;
+
+        if (bird.y <= 0 || bird.y + bird.size >= flappyCanvas.height) {
+          endFlappyGame("Game Over!");
+        }
+
+        pipes.forEach((pipe) => {
+          pipe.x -= pipeSpeed * frameFactor;
+          if (!pipe.scored && pipe.x + pipeWidth < bird.x) {
+            pipe.scored = true;
+            score += 1;
+          }
+        });
+
+        while (pipes.length && pipes[0].x + pipeWidth < 0) {
+          pipes.shift();
+        }
+
+        const birdRect = {
+          x: bird.x,
+          y: bird.y,
+          width: bird.size,
+          height: bird.size,
+        };
+
+        const collision = pipes.some((pipe) => {
+          const topPipe = {
+            x: pipe.x,
+            y: 0,
+            width: pipeWidth,
+            height: pipe.gapTop,
+          };
+          const bottomPipe = {
+            x: pipe.x,
+            y: pipe.gapTop + pipeGap,
+            width: pipeWidth,
+            height: flappyCanvas.height - (pipe.gapTop + pipeGap),
+          };
+
+          return (
+            birdRect.x < topPipe.x + topPipe.width &&
+            birdRect.x + birdRect.width > topPipe.x &&
+            birdRect.y < topPipe.y + topPipe.height &&
+            birdRect.y + birdRect.height > topPipe.y
+          ) || (
+            birdRect.x < bottomPipe.x + bottomPipe.width &&
+            birdRect.x + birdRect.width > bottomPipe.x &&
+            birdRect.y < bottomPipe.y + bottomPipe.height &&
+            birdRect.y + birdRect.height > bottomPipe.y
+          );
+        });
+
+        if (collision) {
+          endFlappyGame("Game Over!");
+        }
+
+        activeGame.score = score;
+
+        ctx.clearRect(0, 0, flappyCanvas.width, flappyCanvas.height);
+        ctx.fillStyle = "#7cc8ff";
+        ctx.fillRect(0, 0, flappyCanvas.width, flappyCanvas.height);
+
+        ctx.fillStyle = "#f1c40f";
+        ctx.beginPath();
+        ctx.arc(bird.x + bird.size / 2, bird.y + bird.size / 2, bird.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#2ecc71";
+        pipes.forEach((pipe) => {
+          ctx.fillRect(pipe.x, 0, pipeWidth, pipe.gapTop);
+          ctx.fillRect(
+            pipe.x,
+            pipe.gapTop + pipeGap,
+            pipeWidth,
+            flappyCanvas.height - (pipe.gapTop + pipeGap)
+          );
+        });
+
+        ctx.fillStyle = "#0a0a0a";
+        ctx.font = "18px Segoe UI, sans-serif";
+        ctx.fillText(`Pontos: ${score}`, 12, 24);
+
+        if (activeGame.running) {
+          activeGame.animationId = requestAnimationFrame(update);
+        }
+      };
+
+      activeGame.animationId = requestAnimationFrame(update);
+    }
+
+    function startGame() {
+      if (selectedGameType === "flappy") {
+        startFlappyGame();
+      } else {
+        startRunnerGame();
+      }
+    }
+
     function playReplay(post, canvas) {
       const data = post.gameData;
       if (!data) {
         return;
       }
 
+      if (data.gameType === "flappy") {
+        playFlappyReplay(data, canvas);
+      } else {
+        playRunnerReplay(data, canvas);
+      }
+    }
+
+    function playRunnerReplay(data, canvas) {
       const ctx = canvas.getContext("2d");
       const worldWidth = 800;
       const worldHeight = 400;
@@ -2688,6 +3023,114 @@
         });
 
         ctx.restore();
+
+        if (elapsed < duration) {
+          requestAnimationFrame(step);
+        }
+      };
+
+      requestAnimationFrame(step);
+    }
+
+    function playFlappyReplay(data, canvas) {
+      const ctx = canvas.getContext("2d");
+      const worldWidth = 800;
+      const worldHeight = 600;
+      const scale = Math.min(canvas.width / worldWidth, canvas.height / worldHeight);
+      const offsetX = (canvas.width - worldWidth * scale) / 2;
+      const offsetY = (canvas.height - worldHeight * scale) / 2;
+
+      const bird = {
+        x: worldWidth * 0.25,
+        y: worldHeight * 0.5,
+        size: 24,
+        velocityY: 0,
+      };
+
+      const gravity = Number.isFinite(data.gravity) ? data.gravity : 0.35;
+      const flapStrength = Number.isFinite(data.flapStrength) ? data.flapStrength : -5.8;
+      const pipeGap = Number.isFinite(data.pipeGap) ? data.pipeGap : 160;
+      const pipeWidth = Number.isFinite(data.pipeWidth) ? data.pipeWidth : 64;
+      const pipeSpeed = Number.isFinite(data.pipeSpeed) ? data.pipeSpeed : 2.6;
+
+      const pipes = [];
+      let inputIndex = 0;
+      let spawnIndex = 0;
+      let score = 0;
+      const inputs = Array.isArray(data.inputs) ? data.inputs : [];
+      const spawnEvents = Array.isArray(data.spawnEvents) ? data.spawnEvents : [];
+      const duration = Number.isFinite(data.duration) ? data.duration : 20000;
+
+      const startTime = performance.now();
+      let lastTime = startTime;
+
+      const spawnPipe = (gapTop) => {
+        pipes.push({
+          x: worldWidth,
+          gapTop,
+          scored: false,
+        });
+      };
+
+      const step = (now) => {
+        const elapsed = now - startTime;
+        const frameFactor = (now - lastTime) / 16.67;
+        lastTime = now;
+
+        while (spawnIndex < spawnEvents.length && spawnEvents[spawnIndex].time <= elapsed) {
+          spawnPipe(spawnEvents[spawnIndex].gapTop);
+          spawnIndex += 1;
+        }
+
+        while (inputIndex < inputs.length && inputs[inputIndex] <= elapsed) {
+          bird.velocityY = flapStrength;
+          inputIndex += 1;
+        }
+
+        bird.velocityY += gravity * frameFactor;
+        bird.y += bird.velocityY * frameFactor;
+
+        pipes.forEach((pipe) => {
+          pipe.x -= pipeSpeed * frameFactor;
+          if (!pipe.scored && pipe.x + pipeWidth < bird.x) {
+            pipe.scored = true;
+            score += 1;
+          }
+        });
+
+        while (pipes.length && pipes[0].x + pipeWidth < 0) {
+          pipes.shift();
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#7cc8ff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(scale, scale);
+
+        ctx.fillStyle = "#f1c40f";
+        ctx.beginPath();
+        ctx.arc(bird.x + bird.size / 2, bird.y + bird.size / 2, bird.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#2ecc71";
+        pipes.forEach((pipe) => {
+          ctx.fillRect(pipe.x, 0, pipeWidth, pipe.gapTop);
+          ctx.fillRect(
+            pipe.x,
+            pipe.gapTop + pipeGap,
+            pipeWidth,
+            worldHeight - (pipe.gapTop + pipeGap)
+          );
+        });
+
+        ctx.restore();
+
+        ctx.fillStyle = "#0a0a0a";
+        ctx.font = "14px Segoe UI, sans-serif";
+        ctx.fillText(`Pontos: ${score}`, 8, 18);
 
         if (elapsed < duration) {
           requestAnimationFrame(step);
@@ -4092,8 +4535,9 @@
 
       if (post.type === "game") {
         const canvas = document.createElement("canvas");
-        canvas.width = 320;
-        canvas.height = 160;
+        const gameType = post.gameData?.gameType;
+        canvas.width = gameType === "flappy" ? 320 : 320;
+        canvas.height = gameType === "flappy" ? 240 : 160;
         canvas.classList.add("game-replay-canvas");
         content.appendChild(canvas);
         playReplay(post, canvas);
@@ -4325,6 +4769,14 @@
       });
     });
 
+    if (gameSelector) {
+      gameSelector.querySelectorAll("[data-game-select]").forEach((button) => {
+        button.addEventListener("click", () => {
+          setSelectedGameType(button.dataset.gameSelect);
+        });
+      });
+    }
+
     searchImageButton.addEventListener("click", () => {
       clearCreateError();
       const theme = formImage.imageTheme.value.trim();
@@ -4465,6 +4917,14 @@
 
     startGameButton.addEventListener("click", startGame);
 
+    restartGameButton.addEventListener("click", () => {
+      if (selectedGameType === "flappy") {
+        startFlappyGame();
+      } else {
+        startRunnerGame();
+      }
+    });
+
     publishGameButton.addEventListener("click", () => {
       if (!activeGame || !activeGame.ended) {
         return;
@@ -4481,14 +4941,16 @@
         10
       );
       const expiresAt = getExpirationTimestamp(durationHours);
-      const scoreSeconds = (activeGame.duration / 1000).toFixed(2);
+      const isFlappy = activeGame.type === "flappy";
+      const scoreLabel = isFlappy ? `${activeGame.score} pts` : `${(activeGame.duration / 1000).toFixed(2)}s`;
       const post = {
         id: getNextPostId(),
         type: "game",
         author: currentUser,
         timestamp: Date.now(),
-        caption: `Gameplay - ${scoreSeconds}s`,
+        caption: `Gameplay ${isFlappy ? "Flappy Bird" : "Corrida"} - ${scoreLabel}`,
         gameData: {
+          gameType: activeGame.type,
           inputs: activeGame.inputs,
           spawnEvents: activeGame.spawnEvents,
           duration: activeGame.duration,
@@ -4497,6 +4959,11 @@
           baseSpeed: activeGame.baseSpeed,
           speedGrowth: activeGame.speedGrowth,
           maxSpeed: activeGame.maxSpeed,
+          flapStrength: activeGame.flapStrength,
+          pipeGap: activeGame.pipeGap,
+          pipeWidth: activeGame.pipeWidth,
+          pipeSpeed: activeGame.pipeSpeed,
+          score: activeGame.score,
         },
         likes: [],
         saves: [],
