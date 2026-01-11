@@ -2422,16 +2422,22 @@
         velocityY: 0,
       };
       const groundLevel = 360;
-      const gravity = 0.8;
-      const jumpPower = -12;
-      const speed = 4;
+      const gravity = 0.7;
+      const jumpPower = -13;
+      const baseSpeed = 4;
+      const speedGrowth = 0.06;
+      const maxSpeed = 6;
+      const minObstacleHeight = 35;
+      const maxObstacleHeight = 85;
+      const baseSpawnDelay = 1200;
+      const spawnVariance = 900;
       const obstacles = [];
       const inputs = [];
       const spawnEvents = [];
       const maxDuration = 30000;
       const startTime = performance.now();
       let lastTime = startTime;
-      let nextSpawnTime = startTime + (1500 + Math.random() * 1000);
+      let nextSpawnTime = startTime + (baseSpawnDelay + Math.random() * spawnVariance);
 
       activeGame = {
         ctx,
@@ -2439,7 +2445,13 @@
         groundLevel,
         gravity,
         jumpPower,
-        speed,
+        baseSpeed,
+        speedGrowth,
+        maxSpeed,
+        minObstacleHeight,
+        maxObstacleHeight,
+        baseSpawnDelay,
+        spawnVariance,
         obstacles,
         inputs,
         spawnEvents,
@@ -2478,7 +2490,8 @@
       gameCanvas.addEventListener("touchstart", handleJump, { passive: true });
 
       const spawnObstacle = (timeStamp) => {
-        const height = 40 + Math.random() * 60;
+        const height =
+          minObstacleHeight + Math.random() * (maxObstacleHeight - minObstacleHeight);
         obstacles.push({
           x: gameCanvas.width,
           y: groundLevel - height,
@@ -2498,12 +2511,17 @@
 
         const elapsed = now - startTime;
         activeGame.elapsed = elapsed;
+        const elapsedSeconds = elapsed / 1000;
+        const currentSpeed = Math.min(baseSpeed + speedGrowth * elapsedSeconds, maxSpeed);
         const frameFactor = (now - lastTime) / 16.67;
         lastTime = now;
 
         if (now >= nextSpawnTime) {
           spawnObstacle(now);
-          nextSpawnTime = now + (1500 + Math.random() * 1000);
+          const difficultyAdjustment = Math.min(elapsedSeconds * 10, 250);
+          const nextDelay =
+            baseSpawnDelay - difficultyAdjustment + Math.random() * spawnVariance;
+          nextSpawnTime = now + Math.max(900, nextDelay);
         }
 
         player.velocityY += gravity * frameFactor;
@@ -2514,7 +2532,7 @@
         }
 
         obstacles.forEach((obstacle) => {
-          obstacle.x -= speed * frameFactor;
+          obstacle.x -= currentSpeed * frameFactor;
         });
 
         while (obstacles.length && obstacles[0].x + obstacles[0].width < 0) {
@@ -2591,9 +2609,11 @@
         size: 30,
         velocityY: 0,
       };
-      const gravity = 0.8;
-      const jumpPower = -12;
-      const speed = 4;
+      const gravity = Number.isFinite(data.gravity) ? data.gravity : 0.7;
+      const jumpPower = Number.isFinite(data.jumpPower) ? data.jumpPower : -13;
+      const baseSpeed = Number.isFinite(data.baseSpeed) ? data.baseSpeed : 4;
+      const speedGrowth = Number.isFinite(data.speedGrowth) ? data.speedGrowth : 0.06;
+      const maxSpeed = Number.isFinite(data.maxSpeed) ? data.maxSpeed : 6;
       const obstacles = [];
 
       let inputIndex = 0;
@@ -2616,6 +2636,8 @@
 
       const step = (now) => {
         const elapsed = now - startTime;
+        const elapsedSeconds = elapsed / 1000;
+        const currentSpeed = Math.min(baseSpeed + speedGrowth * elapsedSeconds, maxSpeed);
         const frameFactor = (now - lastTime) / 16.67;
         lastTime = now;
 
@@ -2639,7 +2661,7 @@
         }
 
         obstacles.forEach((obstacle) => {
-          obstacle.x -= speed * frameFactor;
+          obstacle.x -= currentSpeed * frameFactor;
         });
 
         while (obstacles.length && obstacles[0].x + obstacles[0].width < 0) {
@@ -4470,6 +4492,11 @@
           inputs: activeGame.inputs,
           spawnEvents: activeGame.spawnEvents,
           duration: activeGame.duration,
+          gravity: activeGame.gravity,
+          jumpPower: activeGame.jumpPower,
+          baseSpeed: activeGame.baseSpeed,
+          speedGrowth: activeGame.speedGrowth,
+          maxSpeed: activeGame.maxSpeed,
         },
         likes: [],
         saves: [],
