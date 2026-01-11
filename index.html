@@ -163,6 +163,22 @@
       padding: 12px;
     }
 
+    .auth-form .remember-option {
+      align-items: center;
+      color: var(--muted-text-color);
+      display: flex;
+      font-size: 14px;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .auth-form .remember-option input {
+      accent-color: #ff2d55;
+      cursor: pointer;
+      height: 16px;
+      width: 16px;
+    }
+
     .toggle-auth {
       background: transparent;
       border: none;
@@ -1328,6 +1344,11 @@
         <label for="loginPassword">Senha</label>
         <input id="loginPassword" name="loginPassword" type="password" autocomplete="current-password" required>
 
+        <div class="remember-option">
+          <input id="rememberMe" name="rememberMe" type="checkbox">
+          <label for="rememberMe">Lembre-se de mim</label>
+        </div>
+
         <button type="submit">Entrar</button>
         <button class="toggle-auth" type="button" data-target="registerForm">
           Não tem conta? Registrar
@@ -1748,6 +1769,7 @@
     const POSTS_KEY = "posts";
     const NEXT_POST_ID_KEY = "nextPostId";
     const currentUserKey = "currentUser";
+    const REMEMBERED_USER_KEY = "loggedUser";
     const THEME_KEY = "theme";
     let users = {};
     let posts = [];
@@ -5005,6 +5027,7 @@
         logoutButton.classList.add("logout-button");
         logoutButton.textContent = "Sair";
         logoutButton.addEventListener("click", () => {
+          localStorage.removeItem(REMEMBERED_USER_KEY);
           sessionStorage.clear();
           location.reload();
         });
@@ -5926,8 +5949,14 @@
     syncWithJSONBin();
 
     const storedUser = sessionStorage.getItem(currentUserKey);
-    if (storedUser && users[storedUser]) {
+    const rememberedUser = localStorage.getItem(REMEMBERED_USER_KEY);
+    const nextUser = storedUser || rememberedUser;
+
+    if (nextUser && users[nextUser]) {
+      sessionStorage.setItem(currentUserKey, nextUser);
       enterApp();
+    } else if (rememberedUser) {
+      localStorage.removeItem(REMEMBERED_USER_KEY);
     }
 
     document.querySelectorAll(".toggle-auth").forEach((button) => {
@@ -6521,6 +6550,8 @@
 
       const username = loginForm.loginUser.value.trim();
       const password = loginForm.loginPassword.value;
+      const rememberMeInput = document.getElementById("rememberMe");
+      const shouldRemember = Boolean(rememberMeInput?.checked);
 
       if (!users[username]) {
         loginFailures += 1;
@@ -6543,6 +6574,11 @@
 
       loginFailures = 0;
       sessionStorage.setItem(currentUserKey, username);
+      if (shouldRemember) {
+        localStorage.setItem(REMEMBERED_USER_KEY, username);
+      } else {
+        localStorage.removeItem(REMEMBERED_USER_KEY);
+      }
       loginForm.reset();
       enterApp();
     });
