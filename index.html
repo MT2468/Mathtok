@@ -179,6 +179,18 @@
       width: 16px;
     }
 
+    .guest-button {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      color: inherit;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 16px;
+      padding: 12px;
+      width: 100%;
+    }
+
     .toggle-auth {
       background: transparent;
       border: none;
@@ -291,6 +303,41 @@
 
     #desktopNav i {
       font-size: 24px;
+    }
+
+    .guest-banner {
+      align-items: center;
+      background: rgba(255, 45, 85, 0.12);
+      border: 1px solid rgba(255, 45, 85, 0.4);
+      border-radius: 12px;
+      color: var(--text-color);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      margin: 16px 24px 0;
+      padding: 12px 16px;
+    }
+
+    .guest-banner strong {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .guest-banner button {
+      background: #ff2d55;
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      font-weight: 600;
+      padding: 8px 14px;
+    }
+
+    .is-disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
     }
 
     .content-wrapper {
@@ -1370,6 +1417,10 @@
           Já tem conta? Entrar
         </button>
       </form>
+
+      <button class="guest-button" type="button" id="guestAccessButton">
+        Entrar como Visitante
+      </button>
     </div>
   </div>
 
@@ -1439,6 +1490,14 @@
     </nav>
 
     <div class="content-wrapper">
+      <div id="guestBanner" class="guest-banner" hidden>
+        <strong><i class="fa-regular fa-user"></i> Visitante</strong>
+        <span>Você está navegando em modo visitante.</span>
+        <div>
+          <button type="button" id="guestPlayButton">Jogar minigame</button>
+          <button type="button" id="guestLoginButton">Fazer login</button>
+        </div>
+      </div>
       <section id="homePage" class="page">
         <h2>Home</h2>
       </section>
@@ -1769,6 +1828,7 @@
     const POSTS_KEY = "posts";
     const NEXT_POST_ID_KEY = "nextPostId";
     const currentUserKey = "currentUser";
+    const GUEST_MODE_KEY = "guestMode";
     const REMEMBERED_USER_KEY = "loggedUser";
     const THEME_KEY = "theme";
     let users = {};
@@ -1884,6 +1944,10 @@
     const chatInput = document.getElementById("chatInput");
     const backToList = document.getElementById("backToList");
     const emojiPicker = document.getElementById("emojiPicker");
+    const guestAccessButton = document.getElementById("guestAccessButton");
+    const guestBanner = document.getElementById("guestBanner");
+    const guestLoginButton = document.getElementById("guestLoginButton");
+    const guestPlayButton = document.getElementById("guestPlayButton");
     let activePostId = null;
     let activeGame = null;
     let selectedGameType = "runner";
@@ -2354,13 +2418,71 @@
       authPage.style.display = "none";
       mainApp.style.display = "block";
       applyUserAccessibility();
+      applyGuestInterfaceState();
       showPage("homePage");
       updateNotifBadge();
     }
 
+    function isGuestMode() {
+      return sessionStorage.getItem(GUEST_MODE_KEY) === "true";
+    }
+
     function getCurrentUser() {
+      if (isGuestMode()) {
+        return null;
+      }
       const currentUser = sessionStorage.getItem(currentUserKey);
       return currentUser && users[currentUser] ? currentUser : null;
+    }
+
+    function showAuthScreen() {
+      authPage.style.display = "flex";
+      mainApp.style.display = "none";
+      hideEmojiPicker();
+    }
+
+    function exitGuestMode() {
+      sessionStorage.removeItem(GUEST_MODE_KEY);
+      sessionStorage.removeItem(currentUserKey);
+    }
+
+    function enterGuestMode() {
+      sessionStorage.setItem(GUEST_MODE_KEY, "true");
+      sessionStorage.setItem(currentUserKey, "guest");
+      localStorage.removeItem(REMEMBERED_USER_KEY);
+      enterApp();
+    }
+
+    function notifyLoginRequired(message) {
+      const finalMessage = message || "Faça login para continuar.";
+      const shouldRedirect = confirm(`${finalMessage} Deseja fazer login agora?`);
+      if (shouldRedirect) {
+        if (isGuestMode()) {
+          exitGuestMode();
+        }
+        showAuthScreen();
+        toggleForms("loginForm");
+      }
+    }
+
+    function applyGuestInterfaceState() {
+      const isGuest = isGuestMode();
+      const createButtons = document.querySelectorAll("button[aria-label='Create']");
+
+      createButtons.forEach((button) => {
+        button.disabled = isGuest;
+        button.setAttribute("aria-disabled", isGuest ? "true" : "false");
+        button.classList.toggle("is-disabled", isGuest);
+        if (isGuest) {
+          button.title = "Faça login para criar posts";
+        } else {
+          button.title = "Criar (tecla C)";
+        }
+      });
+
+      if (guestBanner) {
+        guestBanner.hidden = !isGuest;
+      }
     }
 
     function addNotification(targetUser, notification) {
@@ -2755,6 +2877,10 @@
     }
 
     function openCreateModal() {
+      if (isGuestMode()) {
+        notifyLoginRequired("Faça login para criar posts.");
+        return;
+      }
       resetCreateModal();
       showModal(createModal);
       createModal.setAttribute("aria-hidden", "false");
@@ -4341,7 +4467,7 @@
     function toggleLike(postId) {
       const currentUser = getCurrentUser();
       if (!currentUser) {
-        showCreateError("Faça login para curtir.");
+        notifyLoginRequired("Faça login para curtir.");
         return;
       }
 
@@ -4374,7 +4500,7 @@
     function reportPost(postId) {
       const currentUser = getCurrentUser();
       if (!currentUser) {
-        alert("Faça login para denunciar posts.");
+        notifyLoginRequired("Faça login para denunciar posts.");
         return;
       }
 
@@ -4560,7 +4686,7 @@
     function postComment(postId, text, parentId = null) {
       const currentUser = getCurrentUser();
       if (!currentUser) {
-        showCreateError("Faça login para comentar.");
+        notifyLoginRequired("Faça login para comentar.");
         return;
       }
 
@@ -4639,7 +4765,7 @@
     function toggleSave(postId) {
       const currentUser = getCurrentUser();
       if (!currentUser) {
-        showCreateError("Faça login para salvar.");
+        notifyLoginRequired("Faça login para salvar.");
         return;
       }
 
@@ -4953,7 +5079,7 @@
       settingsForm.dataset.bound = "true";
     }
 
-    function renderProfileHeader(user, isCurrentUser) {
+    function renderProfileHeader(user, isCurrentUser, isGuestProfile = false) {
       normalizeUserPoints(user);
       normalizeUserProfile(user);
       const header = document.createElement("div");
@@ -5036,7 +5162,7 @@
         actions.appendChild(settingsButton);
         actions.appendChild(logoutButton);
         actions.appendChild(createThemeToggle());
-      } else {
+      } else if (!isGuestProfile) {
         const followButton = document.createElement("button");
         followButton.classList.add("primary-button");
         followButton.textContent = user.isFollowing ? "Seguindo" : "Seguir";
@@ -5178,10 +5304,41 @@
       return wrapper;
     }
 
+    function renderGuestProfile() {
+      profilePage.innerHTML = "";
+      profilePage.classList.remove(
+        "profile-theme-aurora",
+        "profile-theme-sunset",
+        "profile-theme-ocean"
+      );
+
+      const title = document.createElement("h2");
+      title.textContent = "Visitante";
+      profilePage.appendChild(title);
+
+      const message = document.createElement("p");
+      message.textContent =
+        "Você está navegando como visitante. Faça login para personalizar seu perfil e interagir.";
+      profilePage.appendChild(message);
+
+      const loginButton = document.createElement("button");
+      loginButton.classList.add("primary-button");
+      loginButton.textContent = "Fazer login";
+      loginButton.addEventListener("click", () => {
+        exitGuestMode();
+        showAuthScreen();
+        toggleForms("loginForm");
+      });
+      profilePage.appendChild(loginButton);
+
+      setVisiblePage("profilePage");
+    }
+
     function openProfile(username) {
       removeExpiredPosts();
       const currentUser = getCurrentUser();
-      if (!currentUser) {
+      const isGuest = isGuestMode();
+      if (!currentUser && !isGuest) {
         return;
       }
 
@@ -5193,7 +5350,7 @@
       const targetData = {
         ...target,
         username,
-        isFollowing: users[currentUser].following.includes(username),
+        isFollowing: currentUser ? users[currentUser].following.includes(username) : false,
       };
       normalizeUserProfile(targetData);
 
@@ -5212,7 +5369,8 @@
 
       const { header, stats, actions, userPosts } = renderProfileHeader(
         targetData,
-        username === currentUser
+        username === currentUser,
+        isGuest
       );
       profilePage.appendChild(header);
       profilePage.appendChild(stats);
@@ -5225,7 +5383,7 @@
       if (
         targetData.private &&
         username !== currentUser &&
-        !users[currentUser].following.includes(username)
+        (!currentUser || !users[currentUser].following.includes(username))
       ) {
         const privateMessage = document.createElement("p");
         privateMessage.textContent = "Esta conta é privada. Siga este usuário para visualizar os posts.";
@@ -5260,6 +5418,9 @@
     function toggleFollow(targetUsername) {
       const currentUser = getCurrentUser();
       if (!currentUser || currentUser === targetUsername) {
+        if (!currentUser) {
+          notifyLoginRequired("Faça login para seguir usuários.");
+        }
         return;
       }
 
@@ -5952,8 +6113,11 @@
     const rememberedUser = localStorage.getItem(REMEMBERED_USER_KEY);
     const nextUser = storedUser || rememberedUser;
 
-    if (nextUser && users[nextUser]) {
+    if (isGuestMode()) {
+      enterApp();
+    } else if (nextUser && users[nextUser]) {
       sessionStorage.setItem(currentUserKey, nextUser);
+      sessionStorage.removeItem(GUEST_MODE_KEY);
       enterApp();
     } else if (rememberedUser) {
       localStorage.removeItem(REMEMBERED_USER_KEY);
@@ -6033,9 +6197,9 @@
       event.preventDefault();
       clearCreateError();
 
-      const currentUser = sessionStorage.getItem(currentUserKey);
+      const currentUser = getCurrentUser();
       if (!currentUser) {
-        showCreateError("Faça login para publicar.");
+        notifyLoginRequired("Faça login para publicar.");
         return;
       }
 
@@ -6082,9 +6246,9 @@
       event.preventDefault();
       clearCreateError();
 
-      const currentUser = sessionStorage.getItem(currentUserKey);
+      const currentUser = getCurrentUser();
       if (!currentUser) {
-        showCreateError("Faça login para publicar.");
+        notifyLoginRequired("Faça login para publicar.");
         return;
       }
 
@@ -6171,9 +6335,9 @@
         return;
       }
 
-      const currentUser = sessionStorage.getItem(currentUserKey);
+      const currentUser = getCurrentUser();
       if (!currentUser) {
-        showCreateError("Faça login para publicar.");
+        notifyLoginRequired("Faça login para publicar.");
         return;
       }
 
@@ -6272,6 +6436,8 @@
         const currentUser = getCurrentUser();
         if (currentUser) {
           openProfile(currentUser);
+        } else if (isGuestMode()) {
+          renderGuestProfile();
         }
       });
     });
@@ -6302,6 +6468,30 @@
     document.querySelectorAll("button[aria-label='Inbox']").forEach((button) => {
       button.addEventListener("click", () => showPage("inboxPage"));
     });
+
+    if (guestAccessButton) {
+      guestAccessButton.addEventListener("click", () => {
+        exitGuestMode();
+        enterGuestMode();
+      });
+    }
+
+    if (guestLoginButton) {
+      guestLoginButton.addEventListener("click", () => {
+        exitGuestMode();
+        showAuthScreen();
+        toggleForms("loginForm");
+      });
+    }
+
+    if (guestPlayButton) {
+      guestPlayButton.addEventListener("click", () => {
+        if (!isGuestMode()) {
+          return;
+        }
+        startGame();
+      });
+    }
 
     if (backToList) {
       backToList.addEventListener("click", () => {
@@ -6466,6 +6656,8 @@
         const currentUser = getCurrentUser();
         if (currentUser) {
           openProfile(currentUser);
+        } else if (isGuestMode()) {
+          renderGuestProfile();
         }
       }
     });
@@ -6573,6 +6765,7 @@
       }
 
       loginFailures = 0;
+      exitGuestMode();
       sessionStorage.setItem(currentUserKey, username);
       if (shouldRemember) {
         localStorage.setItem(REMEMBERED_USER_KEY, username);
