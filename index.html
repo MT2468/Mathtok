@@ -207,6 +207,18 @@
       pointer-events: none;
     }
 
+    #homePage {
+      height: 100vh;
+      overflow-y: auto;
+      padding: 0;
+      scroll-behavior: smooth;
+      scroll-snap-type: y mandatory;
+    }
+
+    #homePage::-webkit-scrollbar {
+      width: 0;
+    }
+
     #mobileNav {
       background: var(--nav-bg);
       border-top: 1px solid var(--border-color);
@@ -415,6 +427,34 @@
       flex-direction: column;
       gap: 16px;
       padding: 24px 0;
+    }
+
+    .post.fullscreen {
+      height: 100vh;
+      justify-content: center;
+      opacity: 0;
+      padding: 24px 24px 96px;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      transform: translateY(20px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .post.fullscreen.is-active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .post.fullscreen .post-content {
+      flex: 1;
+    }
+
+    .post.fullscreen .post-info {
+      margin-top: auto;
+    }
+
+    .post.fullscreen .post-actions {
+      margin-bottom: 8px;
     }
 
     .post-content {
@@ -1001,6 +1041,14 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      #homePage {
+        height: 100vh;
+      }
+
+      .post.fullscreen {
+        padding-bottom: 24px;
+      }
+
       .message-container {
         flex-direction: row;
       }
@@ -1523,6 +1571,7 @@
     let discoverSearchQuery = "";
     let lastFocusedElement = null;
     let activeChatUser = null;
+    let feedObserver = null;
 
     function loadUsers() {
       const stored = localStorage.getItem(USERS_KEY);
@@ -1941,6 +1990,10 @@
     function renderFeed() {
       removeExpiredPosts();
       homePage.innerHTML = "";
+      if (feedObserver) {
+        feedObserver.disconnect();
+        feedObserver = null;
+      }
 
       const currentUser = getCurrentUser();
       const preferences = getUserPreferences(currentUser);
@@ -1967,14 +2020,33 @@
       }
 
       shuffled.forEach((post) => {
-        const postElement = createPostElement(post);
+        const postElement = createPostElement(post, { fullscreen: true });
         homePage.appendChild(postElement);
+      });
+
+      feedObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            entry.target.classList.toggle("is-active", entry.isIntersecting);
+          });
+        },
+        {
+          root: homePage,
+          threshold: 0.6,
+        }
+      );
+
+      homePage.querySelectorAll(".post.fullscreen").forEach((post) => {
+        feedObserver.observe(post);
       });
     }
 
-    function createPostElement(post) {
+    function createPostElement(post, options = {}) {
       const postElement = document.createElement("div");
       postElement.classList.add("post");
+      if (options.fullscreen) {
+        postElement.classList.add("fullscreen");
+      }
       postElement.dataset.id = post.id;
 
       if (post.expiresAt) {
