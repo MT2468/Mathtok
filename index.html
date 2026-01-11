@@ -1874,6 +1874,7 @@
     let remoteSyncInFlight = false;
     let pendingRemoteSync = false;
     const dirtyUsers = new Set();
+    let selectedImageUrl = "";
 
     const JSONBIN_BASE_URL = "https://api.jsonbin.io/v3/b";
     const JSONBIN_ENABLED = Boolean(JSONBIN_BIN_ID && JSONBIN_API_KEY);
@@ -2366,6 +2367,55 @@
       return textarea.value;
     }
 
+    function buildTranslationErrorText(text) {
+      return text ? `${text} (en)` : text;
+    }
+
+    async function translateTextToPtBr(text, timeoutMs = 6000) {
+      if (!text) {
+        return { value: text, translated: false };
+      }
+
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+      const encodedText = encodeURIComponent(text);
+      const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=en|pt-BR`;
+
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error("Falha ao traduzir.");
+        }
+        const data = await response.json();
+        const translatedText = data?.responseData?.translatedText?.trim();
+        if (!translatedText) {
+          return { value: text, translated: false };
+        }
+        return { value: translatedText, translated: true };
+      } catch (error) {
+        console.warn("Falha ao traduzir texto. Exibindo original.", error);
+        return { value: text, translated: false };
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    }
+
+    async function translateQuizContent(question, options) {
+      const questionResult = await translateTextToPtBr(question);
+      const translatedOptions = await Promise.all(
+        options.map((option) => translateTextToPtBr(option))
+      );
+
+      return {
+        question: questionResult.translated
+          ? questionResult.value
+          : buildTranslationErrorText(questionResult.value),
+        options: translatedOptions.map((result) =>
+          result.translated ? result.value : buildTranslationErrorText(result.value)
+        ),
+      };
+    }
+
     function syncThemeToggles() {
       const isLight = document.body.classList.contains("light-theme");
       document
@@ -2475,12 +2525,60 @@
       return { ok: true };
     }
 
+    function buildImageSearchUrl(theme) {
+      const sanitizedTheme = theme?.trim();
+      const encodedTheme = encodeURIComponent(sanitizedTheme || "random");
+      const cacheBuster = Date.now();
+      return `https://source.unsplash.com/600x800/?${encodedTheme}&sig=${cacheBuster}`;
+    }
+
+    function buildFallbackImageUrl(theme) {
+      const sanitizedTheme = theme?.trim() || "random";
+      const safeTheme = sanitizedTheme.replace(/\s+/g, "-").toLowerCase();
+      return `https://picsum.photos/seed/${encodeURIComponent(
+        `${safeTheme}-${Date.now()}`
+      )}/600/800`;
+    }
+
+    function handleImageLoadSuccess() {
+      selectedImageUrl = imgPreview.currentSrc || imgPreview.src;
+      imgPreview.style.display = "block";
+      imgPreview.removeAttribute("aria-hidden");
+    }
+
+    function handleImageLoadError(theme) {
+      console.warn("Falha ao carregar imagem. Tentando fallback.");
+      showCreateError("Imagem indisponível. Tentando outra fonte.");
+      imgPreview.onerror = null;
+      imgPreview.src = buildFallbackImageUrl(theme);
+    }
+
+    function buildImageUnavailableDataUri(message = "Imagem indisponível") {
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>
+        <rect width='100%' height='100%' fill='%231a1a1a'/>
+        <text x='50%' y='50%' fill='%23ffffff' font-size='24' text-anchor='middle' dominant-baseline='middle'>
+          ${message}
+        </text>
+      </svg>`;
+      return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    }
+
+    function applyImageFallback(imgElement) {
+      imgElement.addEventListener("error", () => {
+        imgElement.src = buildImageUnavailableDataUri();
+        imgElement.alt = "Imagem indisponível";
+      });
+    }
+
     function resetCreateModal() {
       clearCreateError();
       formImage.reset();
       formQuiz.reset();
       imgPreview.src = "";
       imgPreview.style.display = "none";
+      imgPreview.onload = null;
+      imgPreview.onerror = null;
+      selectedImageUrl = "";
       if (randomQuizButton) {
         randomQuizButton.disabled = false;
         randomQuizButton.textContent = "Pergunta Aleatória";
@@ -2553,11 +2651,14 @@
         }
 
         const correctIndex = allOptions.indexOf(correctAnswer);
-        formQuiz.quizQuestion.value = questionText;
-        formQuiz.quizOptionA.value = allOptions[0] || "";
-        formQuiz.quizOptionB.value = allOptions[1] || "";
-        formQuiz.quizOptionC.value = allOptions[2] || "";
-        formQuiz.quizOptionD.value = allOptions[3] || "";
+        randomQuizButton.textContent = "Traduzindo...";
+        const translated = await translateQuizContent(questionText, allOptions);
+
+        formQuiz.quizQuestion.value = translated.question;
+        formQuiz.quizOptionA.value = translated.options[0] || "";
+        formQuiz.quizOptionB.value = translated.options[1] || "";
+        formQuiz.quizOptionC.value = translated.options[2] || "";
+        formQuiz.quizOptionD.value = translated.options[3] || "";
         formQuiz.quizCorrect.value = correctIndex >= 0 ? String(correctIndex) : "";
 
         randomQuizButton.textContent = "Pergunta carregada!";
@@ -2735,6 +2836,7 @@
         img.alt = post.caption ? `Imagem de ${post.author}` : "Imagem do post";
         img.classList.add("post-image");
         img.loading = "lazy";
+        applyImageFallback(img);
         content.appendChild(img);
       }
 
@@ -5036,6 +5138,7 @@
           img.alt = post.caption || "Imagem do post";
           img.classList.add("post-image");
           img.loading = "lazy";
+          applyImageFallback(img);
           card.appendChild(img);
         } else if (post.type === "quiz") {
           const title = document.createElement("p");
@@ -5596,6 +5699,7 @@
         img.alt = post.caption ? `Imagem de ${post.author}` : "Imagem do post";
         img.classList.add("post-image");
         img.loading = "lazy";
+        applyImageFallback(img);
         content.appendChild(img);
       }
 
@@ -5871,9 +5975,22 @@
     searchImageButton.addEventListener("click", () => {
       clearCreateError();
       const theme = formImage.imageTheme.value.trim();
-      const encodedTheme = encodeURIComponent(theme || "random");
-      imgPreview.src = `https://source.unsplash.com/600x800/?${encodedTheme}`;
-      imgPreview.style.display = "block";
+      selectedImageUrl = "";
+      imgPreview.style.display = "none";
+      imgPreview.setAttribute("aria-hidden", "true");
+      searchImageButton.disabled = true;
+      searchImageButton.textContent = "Buscando...";
+      imgPreview.src = buildImageSearchUrl(theme);
+      imgPreview.onload = () => {
+        handleImageLoadSuccess();
+        searchImageButton.disabled = false;
+        searchImageButton.textContent = "Buscar imagem";
+      };
+      imgPreview.onerror = () => {
+        handleImageLoadError(theme);
+        searchImageButton.disabled = false;
+        searchImageButton.textContent = "Buscar imagem";
+      };
     });
 
     if (randomQuizButton) {
@@ -5893,7 +6010,7 @@
         return;
       }
 
-      if (!imgPreview.src) {
+      if (!selectedImageUrl) {
         showCreateError("Busque uma imagem antes de publicar.");
         return;
       }
@@ -5917,7 +6034,7 @@
         author: currentUser,
         timestamp: Date.now(),
         caption,
-        imageUrl: imgPreview.src,
+        imageUrl: selectedImageUrl,
         likes: [],
         saves: [],
         comments: [],
