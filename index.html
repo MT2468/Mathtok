@@ -496,6 +496,18 @@
       width: 100%;
     }
 
+    #endlessCanvas {
+      background: linear-gradient(180deg, #0f1b2d 0%, #1b2c4a 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      display: block;
+      height: auto;
+      margin-top: 12px;
+      max-height: 70vh;
+      max-width: 100%;
+      width: 100%;
+    }
+
     .game-canvas.is-hidden {
       display: none;
     }
@@ -1532,6 +1544,13 @@
             >
               Jogo 2: Flappy Bird
             </button>
+            <button
+              class="secondary-button game-select-button"
+              type="button"
+              data-game-select="endless"
+            >
+              Jogo 3: Corrida Infinita
+            </button>
           </div>
           <p class="modal-note" id="gameSelectionHint">
             O jogo iniciará ao clicar em “Iniciar jogo”.
@@ -1588,6 +1607,7 @@
         <p class="modal-note">Desvie dos obstáculos e registre sua gameplay.</p>
         <canvas id="gameCanvas" class="game-canvas" width="800" height="400"></canvas>
         <canvas id="flappyCanvas" class="game-canvas is-hidden" width="800" height="600"></canvas>
+        <canvas id="endlessCanvas" class="game-canvas is-hidden" width="800" height="400"></canvas>
         <p id="gameMessage" class="modal-note"></p>
         <div class="modal-actions">
           <button class="primary-button" type="button" id="publishGameButton" disabled>Publicar gameplay</button>
@@ -1707,6 +1727,7 @@
     const gameOverlay = document.getElementById("gameOverlay");
     const gameCanvas = document.getElementById("gameCanvas");
     const flappyCanvas = document.getElementById("flappyCanvas");
+    const endlessCanvas = document.getElementById("endlessCanvas");
     const gameMessage = document.getElementById("gameMessage");
     const gameModeLabel = document.getElementById("gameModeLabel");
     const publishGameButton = document.getElementById("publishGameButton");
@@ -2019,7 +2040,8 @@
     function setSelectedGameType(type) {
       selectedGameType = type;
       if (gameModeLabel) {
-        const label = type === "flappy" ? "Flappy Bird" : "Corrida";
+        const label =
+          type === "flappy" ? "Flappy Bird" : type === "endless" ? "Corrida Infinita" : "Corrida";
         gameModeLabel.textContent = `Jogo selecionado: ${label}`;
       }
       if (gameSelector) {
@@ -2288,8 +2310,9 @@
       if (post.type === "game") {
         const canvas = document.createElement("canvas");
         const gameType = post.gameData?.gameType;
-        canvas.width = gameType === "flappy" ? 320 : 320;
-        canvas.height = gameType === "flappy" ? 240 : 160;
+        canvas.width = 320;
+        canvas.height =
+          gameType === "flappy" ? 240 : gameType === "endless" ? 180 : 160;
         canvas.classList.add("game-replay-canvas");
         content.appendChild(canvas);
         playReplay(post, canvas);
@@ -2475,6 +2498,11 @@
         flappyCanvas.removeEventListener("pointerdown", activeGame.handleFlap);
         flappyCanvas.removeEventListener("touchstart", activeGame.handleFlap);
       }
+      if (activeGame.handleEndlessJump) {
+        window.removeEventListener("keydown", activeGame.handleEndlessJump);
+        endlessCanvas.removeEventListener("pointerdown", activeGame.handleEndlessJump);
+        endlessCanvas.removeEventListener("touchstart", activeGame.handleEndlessJump);
+      }
       activeGame = null;
     }
 
@@ -2494,11 +2522,18 @@
 
     function updateGameOverlayView() {
       const isFlappy = selectedGameType === "flappy";
-      gameCanvas.classList.toggle("is-hidden", isFlappy);
+      const isEndless = selectedGameType === "endless";
+      gameCanvas.classList.toggle("is-hidden", isFlappy || isEndless);
       flappyCanvas.classList.toggle("is-hidden", !isFlappy);
-      restartGameButton.classList.toggle("is-hidden", !isFlappy);
+      endlessCanvas.classList.toggle("is-hidden", !isEndless);
+      restartGameButton.classList.toggle("is-hidden", !(isFlappy || isEndless));
       if (gameModeLabel) {
-        gameModeLabel.textContent = `Jogo selecionado: ${isFlappy ? "Flappy Bird" : "Corrida"}`;
+        const label = isFlappy
+          ? "Flappy Bird"
+          : isEndless
+            ? "Corrida Infinita"
+            : "Corrida";
+        gameModeLabel.textContent = `Jogo selecionado: ${label}`;
       }
     }
 
@@ -2522,6 +2557,19 @@
       activeGame.running = false;
       activeGame.duration = activeGame.elapsed;
       gameMessage.textContent = `${statusMessage} Pontuação: ${activeGame.score} pontos.`;
+      publishGameButton.disabled = false;
+      restartGameButton.classList.remove("is-hidden");
+    }
+
+    function endEndlessRunnerGame(statusMessage) {
+      if (!activeGame || activeGame.ended) {
+        return;
+      }
+      activeGame.ended = true;
+      activeGame.running = false;
+      activeGame.duration = activeGame.elapsed;
+      const distanceLabel = Math.round(activeGame.distance);
+      gameMessage.textContent = `${statusMessage} Distância: ${distanceLabel} m.`;
       publishGameButton.disabled = false;
       restartGameButton.classList.remove("is-hidden");
     }
@@ -2908,9 +2956,215 @@
       activeGame.animationId = requestAnimationFrame(update);
     }
 
+    function startEndlessRunnerGame() {
+      closeCreateModal();
+      stopActiveGame();
+      openGameOverlay();
+      gameMessage.textContent = "";
+      publishGameButton.disabled = true;
+      restartGameButton.classList.add("is-hidden");
+      updateGameOverlayView();
+      resizeGameCanvas(endlessCanvas, 800, 400, 0.6);
+
+      const ctx = endlessCanvas.getContext("2d");
+      // Usamos proporções para manter o jogo consistente em telas menores.
+      const groundRatio = 0.82;
+      const runnerSizeRatio = 0.06;
+      const obstacleWidthRatio = 0.05;
+      const gravityRatio = 0.0028;
+      const jumpPowerRatio = -0.035;
+      const baseSpeedRatio = 0.005;
+      const speedGrowthRatio = 0.00005;
+      const maxSpeedRatio = 0.008;
+
+      const groundLevel = Math.round(endlessCanvas.height * groundRatio);
+      const runnerSize = Math.max(22, endlessCanvas.width * runnerSizeRatio);
+      const runner = {
+        x: endlessCanvas.width * 0.15,
+        y: groundLevel - runnerSize,
+        size: runnerSize,
+        velocityY: 0,
+      };
+      const gravity = endlessCanvas.height * gravityRatio;
+      const jumpPower = endlessCanvas.height * jumpPowerRatio;
+      const baseSpeed = endlessCanvas.width * baseSpeedRatio;
+      const speedGrowth = endlessCanvas.width * speedGrowthRatio;
+      const maxSpeed = endlessCanvas.width * maxSpeedRatio;
+      const baseSpawnDelay = 1300;
+      const spawnVariance = 1200;
+      const obstacles = [];
+      const inputs = [];
+      const spawnEvents = [];
+      const startTime = performance.now();
+      let lastTime = startTime;
+      let nextSpawnTime = startTime + (baseSpawnDelay + Math.random() * spawnVariance);
+      let distance = 0;
+      let score = 0;
+
+      activeGame = {
+        ctx,
+        type: "endless",
+        runner,
+        groundLevel,
+        groundRatio,
+        runnerSizeRatio,
+        obstacleWidthRatio,
+        gravityRatio,
+        jumpPowerRatio,
+        baseSpeedRatio,
+        speedGrowthRatio,
+        maxSpeedRatio,
+        baseSpawnDelay,
+        spawnVariance,
+        obstacles,
+        inputs,
+        spawnEvents,
+        startTime,
+        lastTime,
+        elapsed: 0,
+        running: true,
+        ended: false,
+        duration: 0,
+        distance: 0,
+        score: 0,
+        animationId: null,
+        handleEndlessJump: null,
+      };
+
+      const handleJump = (event) => {
+        if (!activeGame || !activeGame.running) {
+          return;
+        }
+        if (event.type === "keydown") {
+          if (!["Space", "ArrowUp", "KeyW"].includes(event.code)) {
+            return;
+          }
+          if (event.code === "Space") {
+            event.preventDefault();
+          }
+        }
+        if (runner.y >= groundLevel - runner.size) {
+          runner.velocityY = jumpPower;
+          inputs.push(performance.now() - startTime);
+        }
+      };
+
+      activeGame.handleEndlessJump = handleJump;
+      window.addEventListener("keydown", handleJump);
+      endlessCanvas.addEventListener("pointerdown", handleJump);
+      endlessCanvas.addEventListener("touchstart", handleJump, { passive: true });
+
+      const spawnObstacle = (timeStamp) => {
+        const heightRatio = 0.08 + Math.random() * 0.18;
+        const widthRatio = obstacleWidthRatio * (0.9 + Math.random() * 0.3);
+        const height = endlessCanvas.height * heightRatio;
+        const width = endlessCanvas.width * widthRatio;
+        obstacles.push({
+          x: endlessCanvas.width,
+          y: groundLevel - height,
+          width,
+          height,
+          scored: false,
+        });
+        spawnEvents.push({
+          time: timeStamp - startTime,
+          heightRatio,
+          widthRatio,
+        });
+      };
+
+      const update = (now) => {
+        if (!activeGame || !activeGame.running) {
+          return;
+        }
+
+        const elapsed = now - startTime;
+        activeGame.elapsed = elapsed;
+        const elapsedSeconds = elapsed / 1000;
+        const currentSpeed = Math.min(baseSpeed + speedGrowth * elapsedSeconds, maxSpeed);
+        const frameFactor = (now - lastTime) / 16.67;
+        lastTime = now;
+
+        if (now >= nextSpawnTime) {
+          spawnObstacle(now);
+          nextSpawnTime = now + (baseSpawnDelay + Math.random() * spawnVariance);
+        }
+
+        runner.velocityY += gravity * frameFactor;
+        runner.y += runner.velocityY * frameFactor;
+        if (runner.y > groundLevel - runner.size) {
+          runner.y = groundLevel - runner.size;
+          runner.velocityY = 0;
+        }
+
+        obstacles.forEach((obstacle) => {
+          obstacle.x -= currentSpeed * frameFactor;
+          if (!obstacle.scored && obstacle.x + obstacle.width < runner.x) {
+            obstacle.scored = true;
+            score += 1;
+          }
+        });
+
+        while (obstacles.length && obstacles[0].x + obstacles[0].width < 0) {
+          obstacles.shift();
+        }
+
+        const runnerRect = {
+          x: runner.x,
+          y: runner.y,
+          width: runner.size,
+          height: runner.size,
+        };
+
+        const collision = obstacles.some((obstacle) => {
+          return (
+            runnerRect.x < obstacle.x + obstacle.width &&
+            runnerRect.x + runnerRect.width > obstacle.x &&
+            runnerRect.y < obstacle.y + obstacle.height &&
+            runnerRect.y + runnerRect.height > obstacle.y
+          );
+        });
+
+        if (collision) {
+          endEndlessRunnerGame("Game Over!");
+        }
+
+        distance += currentSpeed * frameFactor;
+        activeGame.distance = distance / 4;
+        activeGame.score = score;
+
+        ctx.clearRect(0, 0, endlessCanvas.width, endlessCanvas.height);
+        ctx.fillStyle = "#0f1b2d";
+        ctx.fillRect(0, 0, endlessCanvas.width, endlessCanvas.height);
+
+        ctx.fillStyle = "#203354";
+        ctx.fillRect(0, groundLevel, endlessCanvas.width, endlessCanvas.height - groundLevel);
+
+        ctx.fillStyle = "#ffb703";
+        ctx.fillRect(runner.x, runner.y, runner.size, runner.size);
+
+        ctx.fillStyle = "#ff6b6b";
+        obstacles.forEach((obstacle) => {
+          ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+        });
+
+        ctx.fillStyle = "#f5f5f5";
+        ctx.font = "16px Segoe UI, sans-serif";
+        ctx.fillText(`Distância: ${Math.round(activeGame.distance)} m`, 12, 24);
+
+        if (activeGame.running) {
+          activeGame.animationId = requestAnimationFrame(update);
+        }
+      };
+
+      activeGame.animationId = requestAnimationFrame(update);
+    }
+
     function startGame() {
       if (selectedGameType === "flappy") {
         startFlappyGame();
+      } else if (selectedGameType === "endless") {
+        startEndlessRunnerGame();
       } else {
         startRunnerGame();
       }
@@ -2924,6 +3178,8 @@
 
       if (data.gameType === "flappy") {
         playFlappyReplay(data, canvas);
+      } else if (data.gameType === "endless") {
+        playEndlessRunnerReplay(data, canvas);
       } else {
         playRunnerReplay(data, canvas);
       }
@@ -3131,6 +3387,131 @@
         ctx.fillStyle = "#0a0a0a";
         ctx.font = "14px Segoe UI, sans-serif";
         ctx.fillText(`Pontos: ${score}`, 8, 18);
+
+        if (elapsed < duration) {
+          requestAnimationFrame(step);
+        }
+      };
+
+      requestAnimationFrame(step);
+    }
+
+    function playEndlessRunnerReplay(data, canvas) {
+      const ctx = canvas.getContext("2d");
+      const worldWidth = 800;
+      const worldHeight = 400;
+      const scale = Math.min(canvas.width / worldWidth, canvas.height / worldHeight);
+      const offsetX = (canvas.width - worldWidth * scale) / 2;
+      const offsetY = (canvas.height - worldHeight * scale) / 2;
+
+      const groundRatio = Number.isFinite(data.groundRatio) ? data.groundRatio : 0.82;
+      const runnerSizeRatio = Number.isFinite(data.runnerSizeRatio) ? data.runnerSizeRatio : 0.06;
+      const obstacleWidthRatio = Number.isFinite(data.obstacleWidthRatio)
+        ? data.obstacleWidthRatio
+        : 0.05;
+      const gravityRatio = Number.isFinite(data.gravityRatio) ? data.gravityRatio : 0.0028;
+      const jumpPowerRatio = Number.isFinite(data.jumpPowerRatio) ? data.jumpPowerRatio : -0.035;
+      const baseSpeedRatio = Number.isFinite(data.baseSpeedRatio) ? data.baseSpeedRatio : 0.005;
+      const speedGrowthRatio = Number.isFinite(data.speedGrowthRatio)
+        ? data.speedGrowthRatio
+        : 0.00005;
+      const maxSpeedRatio = Number.isFinite(data.maxSpeedRatio) ? data.maxSpeedRatio : 0.008;
+
+      const groundLevel = worldHeight * groundRatio;
+      const runnerSize = worldWidth * runnerSizeRatio;
+      const runner = {
+        x: worldWidth * 0.15,
+        y: groundLevel - runnerSize,
+        size: runnerSize,
+        velocityY: 0,
+      };
+      const gravity = worldHeight * gravityRatio;
+      const jumpPower = worldHeight * jumpPowerRatio;
+      const baseSpeed = worldWidth * baseSpeedRatio;
+      const speedGrowth = worldWidth * speedGrowthRatio;
+      const maxSpeed = worldWidth * maxSpeedRatio;
+
+      const obstacles = [];
+      let inputIndex = 0;
+      let spawnIndex = 0;
+      let distance = 0;
+      const inputs = Array.isArray(data.inputs) ? data.inputs : [];
+      const spawnEvents = Array.isArray(data.spawnEvents) ? data.spawnEvents : [];
+      const duration = Number.isFinite(data.duration) ? data.duration : 20000;
+
+      const startTime = performance.now();
+      let lastTime = startTime;
+
+      const spawnObstacle = (heightRatio, widthRatio) => {
+        const height = worldHeight * heightRatio;
+        const width = worldWidth * (widthRatio || obstacleWidthRatio);
+        obstacles.push({
+          x: worldWidth,
+          y: groundLevel - height,
+          width,
+          height,
+          scored: false,
+        });
+      };
+
+      const step = (now) => {
+        const elapsed = now - startTime;
+        const elapsedSeconds = elapsed / 1000;
+        const currentSpeed = Math.min(baseSpeed + speedGrowth * elapsedSeconds, maxSpeed);
+        const frameFactor = (now - lastTime) / 16.67;
+        lastTime = now;
+
+        while (spawnIndex < spawnEvents.length && spawnEvents[spawnIndex].time <= elapsed) {
+          spawnObstacle(spawnEvents[spawnIndex].heightRatio, spawnEvents[spawnIndex].widthRatio);
+          spawnIndex += 1;
+        }
+
+        while (inputIndex < inputs.length && inputs[inputIndex] <= elapsed) {
+          runner.velocityY = jumpPower;
+          inputIndex += 1;
+        }
+
+        runner.velocityY += gravity * frameFactor;
+        runner.y += runner.velocityY * frameFactor;
+        if (runner.y > groundLevel - runner.size) {
+          runner.y = groundLevel - runner.size;
+          runner.velocityY = 0;
+        }
+
+        obstacles.forEach((obstacle) => {
+          obstacle.x -= currentSpeed * frameFactor;
+        });
+
+        while (obstacles.length && obstacles[0].x + obstacles[0].width < 0) {
+          obstacles.shift();
+        }
+
+        distance += currentSpeed * frameFactor;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#0f1b2d";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(scale, scale);
+
+        ctx.fillStyle = "#203354";
+        ctx.fillRect(0, groundLevel, worldWidth, worldHeight - groundLevel);
+
+        ctx.fillStyle = "#ffb703";
+        ctx.fillRect(runner.x, runner.y, runner.size, runner.size);
+
+        ctx.fillStyle = "#ff6b6b";
+        obstacles.forEach((obstacle) => {
+          ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+        });
+
+        ctx.restore();
+
+        ctx.fillStyle = "#f5f5f5";
+        ctx.font = "14px Segoe UI, sans-serif";
+        ctx.fillText(`Distância: ${Math.round(distance / 4)} m`, 8, 18);
 
         if (elapsed < duration) {
           requestAnimationFrame(step);
@@ -4536,8 +4917,9 @@
       if (post.type === "game") {
         const canvas = document.createElement("canvas");
         const gameType = post.gameData?.gameType;
-        canvas.width = gameType === "flappy" ? 320 : 320;
-        canvas.height = gameType === "flappy" ? 240 : 160;
+        canvas.width = 320;
+        canvas.height =
+          gameType === "flappy" ? 240 : gameType === "endless" ? 180 : 160;
         canvas.classList.add("game-replay-canvas");
         content.appendChild(canvas);
         playReplay(post, canvas);
@@ -4920,6 +5302,8 @@
     restartGameButton.addEventListener("click", () => {
       if (selectedGameType === "flappy") {
         startFlappyGame();
+      } else if (selectedGameType === "endless") {
+        startEndlessRunnerGame();
       } else {
         startRunnerGame();
       }
@@ -4942,13 +5326,20 @@
       );
       const expiresAt = getExpirationTimestamp(durationHours);
       const isFlappy = activeGame.type === "flappy";
-      const scoreLabel = isFlappy ? `${activeGame.score} pts` : `${(activeGame.duration / 1000).toFixed(2)}s`;
+      const isEndless = activeGame.type === "endless";
+      const scoreLabel = isFlappy
+        ? `${activeGame.score} pts`
+        : isEndless
+          ? `${Math.round(activeGame.distance)} m`
+          : `${(activeGame.duration / 1000).toFixed(2)}s`;
       const post = {
         id: getNextPostId(),
         type: "game",
         author: currentUser,
         timestamp: Date.now(),
-        caption: `Gameplay ${isFlappy ? "Flappy Bird" : "Corrida"} - ${scoreLabel}`,
+        caption: `Gameplay ${
+          isFlappy ? "Flappy Bird" : isEndless ? "Corrida Infinita" : "Corrida"
+        } - ${scoreLabel}`,
         gameData: {
           gameType: activeGame.type,
           inputs: activeGame.inputs,
@@ -4964,6 +5355,15 @@
           pipeWidth: activeGame.pipeWidth,
           pipeSpeed: activeGame.pipeSpeed,
           score: activeGame.score,
+          distance: activeGame.distance,
+          groundRatio: activeGame.groundRatio,
+          runnerSizeRatio: activeGame.runnerSizeRatio,
+          obstacleWidthRatio: activeGame.obstacleWidthRatio,
+          gravityRatio: activeGame.gravityRatio,
+          jumpPowerRatio: activeGame.jumpPowerRatio,
+          baseSpeedRatio: activeGame.baseSpeedRatio,
+          speedGrowthRatio: activeGame.speedGrowthRatio,
+          maxSpeedRatio: activeGame.maxSpeedRatio,
         },
         likes: [],
         saves: [],
