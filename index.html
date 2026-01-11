@@ -2530,31 +2530,67 @@
     };
 
     const BOT_COMMENT_LIBRARY = {
-      RisoMat: ["😂😂 boa!", "KKK adorei!", "hahaha", "Essa foi boa 😆"],
+      RisoMat: [
+        "KKK adorei!",
+        "hahaha 😂",
+        "Essa foi boa 😆",
+        "kkkk genial!",
+      ],
       DoutorCalculo: [
         "Interessante ponto de vista.",
         "Vou pensar nisso 🤔",
         "Boa solução!",
         "Concordo com a análise.",
+        "Parece consistente com a teoria.",
       ],
       EnigmaNumerico: [
         "Talvez haja mais do que os olhos podem ver...",
-        "🤨",
         "Isso me lembra um antigo enigma...",
-        "silêncio enigmático",
+        "Silêncio enigmático.",
+        "...",
       ],
       ArteFractal: [
         "Que legal, visualizo isso como arte!",
         "Inspirador 💖",
         "Lindo!",
         "A criatividade flui aqui.",
+        "Maravilhoso! Vejo formas e cores nisso.",
       ],
       ProfessoraPi: [
         "Ótima contribuição, parabéns!",
         "Exatamente, bem explicado.",
         "Bom exemplo para todos.",
         "Sempre aprendendo algo novo.",
+        "Muito claro! Continue assim.",
       ],
+    };
+
+    const BOT_BEHAVIOR = {
+      RisoMat: {
+        postInterval: { minMs: 6 * 60 * 1000, maxMs: 12 * 60 * 1000 },
+        likeChance: 0.7,
+        commentChance: 0.5,
+      },
+      DoutorCalculo: {
+        postInterval: { minMs: 20 * 60 * 1000, maxMs: 40 * 60 * 1000 },
+        likeChance: 0.35,
+        commentChance: 0.3,
+      },
+      EnigmaNumerico: {
+        postInterval: { minMs: 45 * 60 * 1000, maxMs: 90 * 60 * 1000 },
+        likeChance: 0.2,
+        commentChance: 0.1,
+      },
+      ArteFractal: {
+        postInterval: { minMs: 12 * 60 * 1000, maxMs: 25 * 60 * 1000 },
+        likeChance: 0.5,
+        commentChance: 0.4,
+      },
+      ProfessoraPi: {
+        postInterval: { minMs: 8 * 60 * 1000, maxMs: 14 * 60 * 1000 },
+        likeChance: 0.8,
+        commentChance: 0.6,
+      },
     };
 
     function buildBotUser(profile) {
@@ -2585,6 +2621,7 @@
         contentTheme: profile.contentTheme,
         personality: profile.personality,
         botPostIndex: 0,
+        lastBotPostAt: 0,
       };
     }
 
@@ -2660,63 +2697,135 @@
     }
 
     // Simula engajamento dos bots (curtidas e comentários) de forma orgânica.
-    function triggerBotLikes(post) {
+    function getPostText(post) {
+      return `${post.caption || ""} ${post.content || ""} ${post.question || ""}`.trim();
+    }
+
+    function classifyPostSignals(text) {
+      const normalized = text.toLowerCase();
+      return {
+        isQuestion:
+          normalized.includes("?") ||
+          normalized.includes("desafio") ||
+          normalized.includes("problema"),
+        isHumor:
+          normalized.includes("kkk") ||
+          normalized.includes("haha") ||
+          normalized.includes("piada") ||
+          normalized.includes("😂") ||
+          normalized.includes("🤣"),
+        isMystery:
+          normalized.includes("enigma") ||
+          normalized.includes("charada") ||
+          normalized.includes("mistério") ||
+          normalized.includes("sequência"),
+        isArt:
+          normalized.includes("arte") ||
+          normalized.includes("fractal") ||
+          normalized.includes("mandelbrot") ||
+          normalized.includes("padrão") ||
+          normalized.includes("geom"),
+        isLearning:
+          normalized.includes("dica") ||
+          normalized.includes("aprendi") ||
+          normalized.includes("explica") ||
+          normalized.includes("como"),
+      };
+    }
+
+    function getBotBehavior(botName) {
+      return BOT_BEHAVIOR[botName] || { likeChance: 0.4, commentChance: 0.2 };
+    }
+
+    function adjustChance(baseChance, boost) {
+      return Math.min(0.95, Math.max(0, baseChance + boost));
+    }
+
+    function getBotAffinityBoost(botName, post, signals) {
+      let boost = 0;
+      if (botName === "RisoMat" && signals.isHumor) {
+        boost += 0.2;
+      }
+      if (botName === "DoutorCalculo" && signals.isQuestion) {
+        boost += 0.25;
+      }
+      if (botName === "EnigmaNumerico" && signals.isMystery) {
+        boost += 0.25;
+      }
+      if (botName === "ArteFractal" && signals.isArt) {
+        boost += 0.2;
+      }
+      if (botName === "ProfessoraPi" && (signals.isQuestion || signals.isLearning)) {
+        boost += 0.25;
+      }
+
+      if (post.author === "DoutorCalculo" && botName === "ProfessoraPi") {
+        boost += 0.2;
+      }
+      if (post.author === "ProfessoraPi" && botName === "RisoMat") {
+        boost += 0.15;
+      }
+      if (post.author === "RisoMat" && botName === "EnigmaNumerico") {
+        boost += 0.15;
+      }
+      if (post.author === "EnigmaNumerico" && botName === "DoutorCalculo") {
+        boost += 0.15;
+      }
+      if (post.author && users[post.author]?.isBot && botName === "ArteFractal") {
+        boost += 0.1;
+      }
+
+      return boost;
+    }
+
+    function triggerBotEngagement(post, options = {}) {
       const botUsernames = getBotUsernames().filter((bot) => bot !== post.author);
+      const maxComments = options.maxComments ?? 3;
+      const text = getPostText(post);
+      const signals = classifyPostSignals(text);
+
       let liked = false;
+      const commentCandidates = [];
+
       botUsernames.forEach((bot) => {
-        if (Math.random() < 0.5) {
+        const behavior = getBotBehavior(bot);
+        const boost = getBotAffinityBoost(bot, post, signals);
+        const likeChance = adjustChance(behavior.likeChance, boost);
+        const commentChance = adjustChance(behavior.commentChance, boost * 0.8);
+
+        if (Math.random() < likeChance) {
           if (addLikeFromUser(post, bot)) {
             liked = true;
           }
         }
+
+        if (Math.random() < commentChance && !hasUserCommented(post, bot)) {
+          commentCandidates.push(bot);
+        }
       });
+
       if (liked) {
         savePosts();
         saveUsers();
         refreshEngagementUI(post.id);
       }
-    }
 
-    function scheduleBotComments(post, options = {}) {
-      const authorIsBot = Boolean(users[post.author]?.isBot);
-      const maxComments = options.maxComments ?? (authorIsBot ? 1 : 2);
-      const baseChance = options.baseChance ?? (authorIsBot ? 0.35 : 0.8);
-
-      if (Math.random() > baseChance) {
+      if (options.allowComments === false || commentCandidates.length === 0) {
         return;
       }
 
-      const candidates = getBotUsernames().filter(
-        (bot) => bot !== post.author && !hasUserCommented(post, bot)
-      );
-      if (candidates.length === 0) {
-        return;
-      }
-
-      const commentCount = Math.min(
-        candidates.length,
-        maxComments === 1 ? 1 : Math.random() < 0.6 ? 1 : 2
-      );
-      const selected = shuffleList(candidates).slice(0, commentCount);
-
+      const selected = shuffleList(commentCandidates).slice(0, maxComments);
       selected.forEach((bot, index) => {
         const message = getRandomItem(getBotCommentOptions(bot));
         if (!message) {
           return;
         }
-        const delay = 2500 + index * 1200 + Math.random() * 1500;
+        const delay = 2200 + index * 1200 + Math.random() * 1400;
         window.setTimeout(() => {
           addCommentFromUser(post.id, bot, message, null, { silent: true });
           refreshEngagementUI(post.id);
         }, delay);
       });
-    }
-
-    function triggerBotEngagement(post, options = {}) {
-      triggerBotLikes(post);
-      if (options.allowComments !== false) {
-        scheduleBotComments(post, options);
-      }
     }
 
     function getBotContentList(username) {
@@ -2772,7 +2881,12 @@
         const post = createBotTextPost(profile.username, content, baseTime + index);
         posts.unshift(post);
         updated = true;
-        triggerBotEngagement(post, { baseChance: 0.35, maxComments: 1 });
+        const botData = users[profile.username];
+        if (botData) {
+          botData.lastBotPostAt = Date.now();
+          markUserDirty(profile.username);
+        }
+        triggerBotEngagement(post, { maxComments: 1 });
       });
 
       if (updated) {
@@ -2822,6 +2936,10 @@
           existing.botPostIndex = 0;
           botUpdated = true;
         }
+        if (!Number.isFinite(existing.lastBotPostAt)) {
+          existing.lastBotPostAt = 0;
+          botUpdated = true;
+        }
         if (botUpdated) {
           existing.updatedAt = Date.now();
           markUserDirty(profile.username);
@@ -2832,6 +2950,50 @@
       if (updated) {
         saveUsers();
       }
+    }
+
+    function scheduleBotPosting() {
+      const botUsernames = getBotUsernames();
+      if (botUsernames.length === 0) {
+        return;
+      }
+
+      botUsernames.forEach((botName) => {
+        const behavior = getBotBehavior(botName);
+        const interval = behavior.postInterval || { minMs: 20 * 60 * 1000, maxMs: 40 * 60 * 1000 };
+        const scheduleNext = () => {
+          const delay =
+            interval.minMs +
+            Math.random() * Math.max(0, interval.maxMs - interval.minMs);
+          window.setTimeout(() => {
+            const botData = users[botName];
+            if (!botData) {
+              scheduleNext();
+              return;
+            }
+            const now = Date.now();
+            if (now - (botData.lastBotPostAt || 0) < interval.minMs * 0.8) {
+              scheduleNext();
+              return;
+            }
+            const content = getNextBotContent(botName);
+            if (!content) {
+              scheduleNext();
+              return;
+            }
+            const post = createBotTextPost(botName, content, now);
+            posts.unshift(post);
+            botData.lastBotPostAt = now;
+            markUserDirty(botName);
+            savePosts();
+            saveUsers();
+            refreshEngagementUI(post.id);
+            triggerBotEngagement(post, { maxComments: 2 });
+            scheduleNext();
+          }, delay);
+        };
+        scheduleNext();
+      });
     }
 
     function saveUsers() {
@@ -6687,6 +6849,7 @@
     loadPosts();
     removeExpiredPosts();
     seedInitialBotPosts();
+    scheduleBotPosting();
     syncWithJSONBin();
 
     const storedUser = sessionStorage.getItem(currentUserKey);
