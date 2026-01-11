@@ -2593,6 +2593,9 @@
       },
     };
 
+    const BOT_ACTIVITY_INTERVAL_MS = 30000;
+    const MAX_FEED_POSTS = 80;
+
     function buildBotUser(profile) {
       return {
         passwordHash: "bot",
@@ -2828,6 +2831,14 @@
       });
     }
 
+    function trimOldPosts() {
+      if (posts.length <= MAX_FEED_POSTS) {
+        return;
+      }
+      const trimmed = posts.slice(0, MAX_FEED_POSTS);
+      posts = trimmed;
+    }
+
     function getBotContentList(username) {
       return BOT_CONTENT_LIBRARY[username] || [];
     }
@@ -2983,6 +2994,7 @@
             }
             const post = createBotTextPost(botName, content, now);
             posts.unshift(post);
+            trimOldPosts();
             botData.lastBotPostAt = now;
             markUserDirty(botName);
             savePosts();
@@ -2994,6 +3006,106 @@
         };
         scheduleNext();
       });
+    }
+
+    function getEligibleBotForPosting() {
+      const now = Date.now();
+      const botUsernames = getBotUsernames();
+      const eligible = botUsernames.filter((bot) => {
+        const behavior = getBotBehavior(bot);
+        const interval = behavior.postInterval;
+        if (!interval) {
+          return false;
+        }
+        const lastPost = users[bot]?.lastBotPostAt || 0;
+        return now - lastPost >= interval.minMs;
+      });
+      return eligible.length > 0 ? getRandomItem(eligible) : "";
+    }
+
+    function getPostForActivity() {
+      if (posts.length === 0) {
+        return null;
+      }
+      const sorted = [...posts].sort(
+        (a, b) => (a.comments?.length || 0) - (b.comments?.length || 0)
+      );
+      const candidates = sorted.slice(0, Math.min(10, sorted.length));
+      return getRandomItem(candidates) || null;
+    }
+
+    function runBotActivityTick() {
+      const hasPosts = posts.length > 0;
+      const shouldPost = Math.random() < 0.2;
+      if (shouldPost) {
+        const botName = getEligibleBotForPosting();
+        if (botName) {
+          const content = getNextBotContent(botName);
+          if (content) {
+            const now = Date.now();
+            const post = createBotTextPost(botName, content, now);
+            posts.unshift(post);
+            trimOldPosts();
+            users[botName].lastBotPostAt = now;
+            markUserDirty(botName);
+            savePosts();
+            saveUsers();
+            refreshEngagementUI(post.id);
+            triggerBotEngagement(post, { maxComments: 2 });
+          }
+        }
+      }
+
+      if (!hasPosts) {
+        return;
+      }
+
+      if (Math.random() < 0.8) {
+        const post = getPostForActivity();
+        if (!post) {
+          return;
+        }
+        const botName = getRandomItem(
+          getBotUsernames().filter((bot) => bot !== post.author)
+        );
+        if (!botName) {
+          return;
+        }
+        const text = getPostText(post);
+        const signals = classifyPostSignals(text);
+        const behavior = getBotBehavior(botName);
+        const boost = getBotAffinityBoost(botName, post, signals);
+        const likeChance = adjustChance(behavior.likeChance, boost);
+        const commentChance = adjustChance(behavior.commentChance, boost * 0.8);
+        let updated = false;
+
+        if (Math.random() < likeChance) {
+          if (addLikeFromUser(post, botName)) {
+            updated = true;
+          }
+        }
+        if (
+          Math.random() < commentChance &&
+          !hasUserCommented(post, botName) &&
+          (post.comments?.length || 0) < 6
+        ) {
+          const message = getRandomItem(getBotCommentOptions(botName));
+          if (message) {
+            addCommentFromUser(post.id, botName, message, null, { silent: true });
+            updated = true;
+          }
+        }
+
+        if (updated) {
+          savePosts();
+          saveUsers();
+          refreshEngagementUI(post.id);
+        }
+      }
+    }
+
+    function startBotActivityLoop() {
+      window.setInterval(runBotActivityTick, BOT_ACTIVITY_INTERVAL_MS);
     }
 
     function saveUsers() {
@@ -6850,6 +6962,7 @@
     removeExpiredPosts();
     seedInitialBotPosts();
     scheduleBotPosting();
+    startBotActivityLoop();
     syncWithJSONBin();
 
     const storedUser = sessionStorage.getItem(currentUserKey);
