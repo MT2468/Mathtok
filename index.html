@@ -698,6 +698,75 @@
       padding: 12px;
     }
 
+    .profile-customization {
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 16px;
+      padding: 16px;
+    }
+
+    .profile-customization h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .avatar-grid,
+    .theme-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+    }
+
+    .avatar-option,
+    .theme-option {
+      border: 2px solid transparent;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      padding: 6px;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .avatar-option img {
+      border-radius: 50%;
+      height: 56px;
+      width: 56px;
+    }
+
+    .theme-option {
+      align-items: center;
+      min-height: 56px;
+    }
+
+    .avatar-option.selected,
+    .theme-option.selected {
+      border-color: #ff2d55;
+      transform: scale(1.02);
+    }
+
+    .theme-thumbnail {
+      border-radius: 10px;
+      height: 100%;
+      min-height: 56px;
+      width: 100%;
+    }
+
+    .profile-theme-aurora {
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    }
+
+    .profile-theme-sunset {
+      background: linear-gradient(135deg, #f857a6, #ff5858);
+    }
+
+    .profile-theme-ocean {
+      background: linear-gradient(135deg, #2193b0, #6dd5ed);
+    }
+
     .post-author {
       align-items: center;
       display: inline-flex;
@@ -1522,6 +1591,39 @@
       "idiotice",
     ];
 
+    const AVATAR_OPTIONS = [
+      {
+        id: "avatar1",
+        label: "Avatar Lâmpada",
+        src:
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><circle cx='60' cy='60' r='56' fill='%23ffe66d'/><text x='60' y='72' text-anchor='middle' font-size='52'>💡</text></svg>",
+      },
+      {
+        id: "avatar2",
+        label: "Avatar Estrela",
+        src:
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><circle cx='60' cy='60' r='56' fill='%23a2d2ff'/><text x='60' y='72' text-anchor='middle' font-size='52'>⭐</text></svg>",
+      },
+      {
+        id: "avatar3",
+        label: "Avatar Foguete",
+        src:
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><circle cx='60' cy='60' r='56' fill='%23cdb4db'/><text x='60' y='72' text-anchor='middle' font-size='52'>🚀</text></svg>",
+      },
+      {
+        id: "avatar4",
+        label: "Avatar Coração",
+        src:
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><circle cx='60' cy='60' r='56' fill='%23ffafcc'/><text x='60' y='72' text-anchor='middle' font-size='52'>❤️</text></svg>",
+      },
+    ];
+
+    const THEME_OPTIONS = [
+      { id: "aurora", label: "Tema Aurora", className: "profile-theme-aurora" },
+      { id: "sunset", label: "Tema Pôr do Sol", className: "profile-theme-sunset" },
+      { id: "ocean", label: "Tema Oceano", className: "profile-theme-ocean" },
+    ];
+
     const authPage = document.getElementById("authPage");
     const mainApp = document.getElementById("mainApp");
     const loginForm = document.getElementById("loginForm");
@@ -1585,7 +1687,8 @@
         const verificationUpdated = normalizeUserVerification(user);
         const answeredUpdated = normalizeUserAnswered(user);
         const messagesUpdated = normalizeUserMessages(user);
-        if (verificationUpdated || answeredUpdated || messagesUpdated) {
+        const profileUpdated = normalizeUserProfile(user);
+        if (verificationUpdated || answeredUpdated || messagesUpdated || profileUpdated) {
           updated = true;
         }
       });
@@ -1779,6 +1882,14 @@
           badge.style.display = "none";
         }
       });
+    }
+
+    function getAvatarById(avatarId) {
+      return AVATAR_OPTIONS.find((avatar) => avatar.id === avatarId) || AVATAR_OPTIONS[0];
+    }
+
+    function getThemeById(themeId) {
+      return THEME_OPTIONS.find((theme) => theme.id === themeId) || THEME_OPTIONS[0];
     }
 
     function createThemeToggle() {
@@ -2976,6 +3087,19 @@
       normalizeUserVerification(user);
     }
 
+    function normalizeUserProfile(user) {
+      let updated = false;
+      if (!user.avatarId) {
+        user.avatarId = AVATAR_OPTIONS[0].id;
+        updated = true;
+      }
+      if (!user.themeId) {
+        user.themeId = THEME_OPTIONS[0].id;
+        updated = true;
+      }
+      return updated;
+    }
+
     function normalizeUserMessages(user) {
       if (!user.conversations || typeof user.conversations !== "object") {
         user.conversations = {};
@@ -3164,12 +3288,17 @@
 
     function renderProfileHeader(user, isCurrentUser) {
       normalizeUserPoints(user);
+      normalizeUserProfile(user);
       const header = document.createElement("div");
       header.classList.add("profile-header");
 
       const avatar = document.createElement("div");
-      avatar.classList.add("avatar");
-      avatar.textContent = user.username.charAt(0).toUpperCase();
+      avatar.classList.add("avatar", "avatar--img");
+      const avatarData = getAvatarById(user.avatarId);
+      const avatarImg = document.createElement("img");
+      avatarImg.src = avatarData.src;
+      avatarImg.alt = avatarData.label;
+      avatar.appendChild(avatarImg);
 
       const userInfo = document.createElement("div");
       const name = document.createElement("h3");
@@ -3251,6 +3380,97 @@
       return { header, stats, actions, userPosts };
     }
 
+    function renderProfileCustomization(user) {
+      const customization = document.createElement("div");
+      customization.classList.add("profile-customization");
+
+      const avatarSection = document.createElement("div");
+      const avatarTitle = document.createElement("h3");
+      avatarTitle.textContent = "Escolha seu avatar";
+      const avatarGrid = document.createElement("div");
+      avatarGrid.classList.add("avatar-grid");
+
+      let selectedAvatarId = user.avatarId;
+
+      AVATAR_OPTIONS.forEach((option) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.classList.add("avatar-option");
+        if (option.id === selectedAvatarId) {
+          button.classList.add("selected");
+        }
+        button.setAttribute("aria-label", option.label);
+
+        const img = document.createElement("img");
+        img.src = option.src;
+        img.alt = option.label;
+        button.appendChild(img);
+
+        button.addEventListener("click", () => {
+          selectedAvatarId = option.id;
+          avatarGrid.querySelectorAll(".avatar-option").forEach((item) => {
+            item.classList.toggle("selected", item === button);
+          });
+        });
+
+        avatarGrid.appendChild(button);
+      });
+
+      avatarSection.appendChild(avatarTitle);
+      avatarSection.appendChild(avatarGrid);
+
+      const themeSection = document.createElement("div");
+      const themeTitle = document.createElement("h3");
+      themeTitle.textContent = "Escolha o tema do perfil";
+      const themeGrid = document.createElement("div");
+      themeGrid.classList.add("theme-grid");
+
+      let selectedThemeId = user.themeId;
+
+      THEME_OPTIONS.forEach((option) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.classList.add("theme-option");
+        if (option.id === selectedThemeId) {
+          button.classList.add("selected");
+        }
+        button.setAttribute("aria-label", option.label);
+
+        const thumbnail = document.createElement("div");
+        thumbnail.classList.add("theme-thumbnail", option.className);
+        button.appendChild(thumbnail);
+
+        button.addEventListener("click", () => {
+          selectedThemeId = option.id;
+          themeGrid.querySelectorAll(".theme-option").forEach((item) => {
+            item.classList.toggle("selected", item === button);
+          });
+        });
+
+        themeGrid.appendChild(button);
+      });
+
+      themeSection.appendChild(themeTitle);
+      themeSection.appendChild(themeGrid);
+
+      const saveButton = document.createElement("button");
+      saveButton.type = "button";
+      saveButton.classList.add("primary-button");
+      saveButton.textContent = "Salvar alterações";
+      saveButton.addEventListener("click", () => {
+        user.avatarId = selectedAvatarId;
+        user.themeId = selectedThemeId;
+        saveUsers();
+        openProfile(user.username);
+      });
+
+      customization.appendChild(avatarSection);
+      customization.appendChild(themeSection);
+      customization.appendChild(saveButton);
+
+      return customization;
+    }
+
     function renderPostList(list) {
       const wrapper = document.createElement("div");
       wrapper.classList.add("profile-list");
@@ -3304,8 +3524,16 @@
         username,
         isFollowing: users[currentUser].following.includes(username),
       };
+      normalizeUserProfile(targetData);
 
       profilePage.innerHTML = "";
+      profilePage.classList.remove(
+        "profile-theme-aurora",
+        "profile-theme-sunset",
+        "profile-theme-ocean"
+      );
+      const theme = getThemeById(targetData.themeId);
+      profilePage.classList.add(theme.className);
 
       const title = document.createElement("h2");
       title.textContent = "Profile";
@@ -3318,6 +3546,10 @@
       profilePage.appendChild(header);
       profilePage.appendChild(stats);
       profilePage.appendChild(actions);
+
+      if (username === currentUser) {
+        profilePage.appendChild(renderProfileCustomization(targetData));
+      }
 
       if (
         targetData.private &&
@@ -4519,6 +4751,8 @@
           hideGames: false,
           highContrast: false,
         },
+        avatarId: AVATAR_OPTIONS[0].id,
+        themeId: THEME_OPTIONS[0].id,
         points: 0,
         isVerified: false,
         notifications: [],
