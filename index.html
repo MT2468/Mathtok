@@ -1736,6 +1736,12 @@
 
   <script>
     // -----------------------------
+    // Configuração JSONBin (preencha para habilitar a sincronização)
+    // -----------------------------
+    const JSONBIN_BIN_ID = ""; // Ex: "65f123abc..."
+    const JSONBIN_API_KEY = ""; // Ex: "X-Master-Key..."
+
+    // -----------------------------
     // Utilidades básicas
     // -----------------------------
     const USERS_KEY = "users";
@@ -1864,6 +1870,344 @@
     let lastFocusedElement = null;
     let activeChatUser = null;
     let feedObserver = null;
+    let remoteSyncTimer = null;
+    let remoteSyncInFlight = false;
+    let pendingRemoteSync = false;
+    const dirtyUsers = new Set();
+
+    const JSONBIN_BASE_URL = "https://api.jsonbin.io/v3/b";
+    const JSONBIN_ENABLED = Boolean(JSONBIN_BIN_ID && JSONBIN_API_KEY);
+
+    function logSync(message, extra) {
+      if (extra !== undefined) {
+        console.info(`[JSONBin] ${message}`, extra);
+      } else {
+        console.info(`[JSONBin] ${message}`);
+      }
+    }
+
+    function warnSync(message, error) {
+      if (error) {
+        console.warn(`[JSONBin] ${message}`, error);
+      } else {
+        console.warn(`[JSONBin] ${message}`);
+      }
+    }
+
+    function markUserDirty(username) {
+      if (!username || !users[username]) {
+        return;
+      }
+      dirtyUsers.add(username);
+    }
+
+    function applyUserUpdates() {
+      if (dirtyUsers.size === 0) {
+        return;
+      }
+      const now = Date.now();
+      dirtyUsers.forEach((username) => {
+        if (users[username]) {
+          users[username].updatedAt = now;
+        }
+      });
+      dirtyUsers.clear();
+    }
+
+    function mergeUniqueArray(primary = [], secondary = []) {
+      const set = new Set([...primary, ...secondary].filter((value) => value !== undefined));
+      return Array.from(set);
+    }
+
+    function mergeUniqueObjects(primary = [], secondary = [], getKey) {
+      const map = new Map();
+      const addItem = (item) => {
+        if (!item) {
+          return;
+        }
+        const key = getKey(item);
+        if (key === undefined || key === null) {
+          return;
+        }
+        const existing = map.get(key);
+        if (!existing) {
+          map.set(key, { ...item });
+          return;
+        }
+        const primaryTimestamp = existing.timestamp || 0;
+        const candidateTimestamp = item.timestamp || 0;
+        if (candidateTimestamp > primaryTimestamp) {
+          map.set(key, { ...existing, ...item });
+        }
+      };
+
+      primary.forEach(addItem);
+      secondary.forEach(addItem);
+      return Array.from(map.values());
+    }
+
+    function mergeConversations(primary = {}, secondary = {}) {
+      const merged = {};
+      const allUsers = new Set([...Object.keys(primary), ...Object.keys(secondary)]);
+      allUsers.forEach((username) => {
+        const primaryMessages = Array.isArray(primary[username]) ? primary[username] : [];
+        const secondaryMessages = Array.isArray(secondary[username]) ? secondary[username] : [];
+        const combined = mergeUniqueObjects(
+          primaryMessages,
+          secondaryMessages,
+          (message) => `${message.timestamp}-${message.sender}-${message.text}`
+        );
+        combined.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        merged[username] = combined;
+      });
+      return merged;
+    }
+
+    function mergeUsers(localUsers = {}, remoteUsers = {}) {
+      const merged = {};
+      const usernames = new Set([...Object.keys(localUsers), ...Object.keys(remoteUsers)]);
+      usernames.forEach((username) => {
+        const localUser = localUsers[username];
+        const remoteUser = remoteUsers[username];
+        if (!localUser) {
+          merged[username] = { ...remoteUser };
+          return;
+        }
+        if (!remoteUser) {
+          merged[username] = { ...localUser };
+          return;
+        }
+
+        const localUpdatedAt = Number(localUser.updatedAt) || 0;
+        const remoteUpdatedAt = Number(remoteUser.updatedAt) || 0;
+        const base =
+          localUpdatedAt && remoteUpdatedAt
+            ? localUpdatedAt >= remoteUpdatedAt
+              ? localUser
+              : remoteUser
+            : localUpdatedAt
+              ? localUser
+              : remoteUpdatedAt
+                ? remoteUser
+                : localUser;
+
+        merged[username] = {
+          ...remoteUser,
+          ...localUser,
+          ...base,
+          followers: mergeUniqueArray(localUser.followers || [], remoteUser.followers || []),
+          following: mergeUniqueArray(localUser.following || [], remoteUser.following || []),
+          favorites: mergeUniqueArray(localUser.favorites || [], remoteUser.favorites || []),
+          reported: mergeUniqueArray(localUser.reported || [], remoteUser.reported || []),
+          notifications: mergeUniqueObjects(
+            localUser.notifications || [],
+            remoteUser.notifications || [],
+            (notification) =>
+              `${notification.type}-${notification.from}-${notification.postId}-${notification.timestamp}`
+          ),
+          answered: { ...(remoteUser.answered || {}), ...(localUser.answered || {}) },
+          conversations: mergeConversations(
+            localUser.conversations || {},
+            remoteUser.conversations || {}
+          ),
+          preferences: {
+            ...(remoteUser.preferences || {}),
+            ...(localUser.preferences || {}),
+            ...(base.preferences || {}),
+          },
+          points: Math.max(localUser.points || 0, remoteUser.points || 0),
+          updatedAt: Math.max(localUpdatedAt, remoteUpdatedAt) || base.updatedAt,
+        };
+      });
+      return merged;
+    }
+
+    function mergeComments(localComments = [], remoteComments = []) {
+      return mergeUniqueObjects(
+        localComments,
+        remoteComments,
+        (comment) => comment.id || `${comment.author}-${comment.timestamp}-${comment.text}`
+      );
+    }
+
+    function mergePosts(localPosts = [], remotePosts = []) {
+      const map = new Map();
+
+      const addPost = (post) => {
+        if (!post || post.id === undefined || post.id === null) {
+          return;
+        }
+        const id = post.id;
+        const existing = map.get(id);
+        if (!existing) {
+          map.set(id, { ...post });
+          return;
+        }
+
+        const localTimestamp = existing.timestamp || 0;
+        const incomingTimestamp = post.timestamp || 0;
+        const base = incomingTimestamp > localTimestamp ? post : existing;
+
+        map.set(id, {
+          ...existing,
+          ...post,
+          ...base,
+          likes: mergeUniqueArray(existing.likes || [], post.likes || []),
+          saves: mergeUniqueArray(existing.saves || [], post.saves || []),
+          comments: mergeComments(existing.comments || [], post.comments || []),
+        });
+      };
+
+      localPosts.forEach(addPost);
+      remotePosts.forEach(addPost);
+      return Array.from(map.values()).sort(
+        (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
+      );
+    }
+
+    function getLocalSnapshot() {
+      const storedUsers = localStorage.getItem(USERS_KEY);
+      const storedPosts = localStorage.getItem(POSTS_KEY);
+      const storedNext = localStorage.getItem(NEXT_POST_ID_KEY);
+      return {
+        users: storedUsers ? JSON.parse(storedUsers) : {},
+        posts: storedPosts ? JSON.parse(storedPosts) : [],
+        nextPostId: storedNext ? Number.parseInt(storedNext, 10) : 1,
+      };
+    }
+
+    async function fetchRemoteSnapshot() {
+      if (!JSONBIN_ENABLED) {
+        logSync("Configuração ausente. Sincronização remota desativada.");
+        return null;
+      }
+      const response = await fetch(`${JSONBIN_BASE_URL}/${JSONBIN_BIN_ID}/latest`, {
+        headers: {
+          "X-Master-Key": JSONBIN_API_KEY,
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Falha ao carregar JSONBin (${response.status})`);
+      }
+      const data = await response.json();
+      return data?.record || null;
+    }
+
+    async function persistRemoteSnapshot(payload) {
+      if (!JSONBIN_ENABLED) {
+        return;
+      }
+      const response = await fetch(`${JSONBIN_BASE_URL}/${JSONBIN_BIN_ID}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Master-Key": JSONBIN_API_KEY,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        throw new Error(`Falha ao salvar JSONBin (${response.status})`);
+      }
+    }
+
+    function scheduleRemoteSync(reason) {
+      if (!JSONBIN_ENABLED) {
+        return;
+      }
+      pendingRemoteSync = true;
+      if (remoteSyncTimer) {
+        clearTimeout(remoteSyncTimer);
+      }
+      remoteSyncTimer = setTimeout(() => {
+        remoteSyncTimer = null;
+        if (pendingRemoteSync) {
+          performRemoteSync(reason);
+        }
+      }, 1200);
+    }
+
+    async function performRemoteSync(reason) {
+      if (!JSONBIN_ENABLED || remoteSyncInFlight) {
+        return;
+      }
+      remoteSyncInFlight = true;
+      pendingRemoteSync = false;
+      const payload = {
+        users,
+        posts,
+        nextPostId: Number.parseInt(localStorage.getItem(NEXT_POST_ID_KEY) || "1", 10),
+      };
+      logSync(`Enviando alterações (${reason || "auto"})...`);
+      try {
+        await persistRemoteSnapshot(payload);
+        logSync("Sincronização concluída.");
+      } catch (error) {
+        warnSync("Falha ao enviar dados. Mantendo dados locais.", error);
+      } finally {
+        remoteSyncInFlight = false;
+        if (pendingRemoteSync) {
+          scheduleRemoteSync("pending");
+        }
+      }
+    }
+
+    function applyMergedSnapshot(snapshot) {
+      users = snapshot.users || {};
+      posts = snapshot.posts || [];
+      const nextId = snapshot.nextPostId || 1;
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
+      localStorage.setItem(NEXT_POST_ID_KEY, String(nextId));
+    }
+
+    function refreshVisiblePage() {
+      const pages = [
+        "homePage",
+        "discoverPage",
+        "friendsPage",
+        "inboxPage",
+        "messagesPage",
+        "profilePage",
+        "settingsPage",
+      ];
+      const activePage = pages.find((id) => {
+        const page = document.getElementById(id);
+        return page?.style.display === "block";
+      });
+      if (activePage) {
+        showPage(activePage);
+      }
+    }
+
+    async function syncWithJSONBin() {
+      if (!JSONBIN_ENABLED) {
+        return;
+      }
+      logSync("Buscando dados remotos...");
+      try {
+        const remoteSnapshot = await fetchRemoteSnapshot();
+        if (!remoteSnapshot) {
+          logSync("Nenhum dado remoto encontrado. Mantendo dados locais.");
+          return;
+        }
+        const localSnapshot = getLocalSnapshot();
+        const mergedSnapshot = {
+          users: mergeUsers(localSnapshot.users, remoteSnapshot.users || {}),
+          posts: mergePosts(localSnapshot.posts, remoteSnapshot.posts || []),
+          nextPostId: Math.max(
+            localSnapshot.nextPostId || 1,
+            remoteSnapshot.nextPostId || 1
+          ),
+        };
+        applyMergedSnapshot(mergedSnapshot);
+        logSync("Dados locais atualizados via merge.");
+        refreshVisiblePage();
+        updateNotifBadge();
+        scheduleRemoteSync("merge");
+      } catch (error) {
+        warnSync("Falha ao sincronizar. Continuando offline.", error);
+      }
+    }
 
     function loadUsers() {
       const stored = localStorage.getItem(USERS_KEY);
@@ -1888,7 +2232,9 @@
     }
 
     function saveUsers() {
+      applyUserUpdates();
       localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      scheduleRemoteSync("users");
     }
 
     function loadPosts() {
@@ -1901,6 +2247,7 @@
 
     function savePosts() {
       localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
+      scheduleRemoteSync("posts");
     }
 
     function removeExpiredPosts() {
@@ -1937,6 +2284,7 @@
       const stored = localStorage.getItem(NEXT_POST_ID_KEY);
       const nextId = stored ? Number.parseInt(stored, 10) : 1;
       localStorage.setItem(NEXT_POST_ID_KEY, String(nextId + 1));
+      scheduleRemoteSync("nextPostId");
       return nextId;
     }
 
@@ -2001,6 +2349,7 @@
         timestamp: Date.now(),
         read: false,
       });
+      markUserDirty(targetUser);
       saveUsers();
       if (targetUser === getCurrentUser()) {
         updateNotifBadge();
@@ -2572,6 +2921,7 @@
       if (selectedIndex === post.correctIndex) {
         addUserPoints(currentUser, 1);
       }
+      markUserDirty(currentUser);
       saveUsers();
 
       applyQuizAnswerState(quizContainer, post, selectedIndex);
@@ -3913,6 +4263,7 @@
       if (!users[currentUser].reported.includes(postId)) {
         users[currentUser].reported.push(postId);
       }
+      markUserDirty(currentUser);
 
       posts = posts.filter((post) => post.id !== postId);
       Object.values(users).forEach((user) => {
@@ -4180,6 +4531,7 @@
         userData.favorites.splice(index, 1);
       }
 
+      markUserDirty(currentUser);
       saveUsers();
       renderFeed();
     }
@@ -4363,6 +4715,7 @@
       }
       normalizeUserPoints(users[username]);
       users[username].points += amount;
+      markUserDirty(username);
     }
 
     function renderSettingsPage() {
@@ -4464,6 +4817,7 @@
           applyHighContrast(target.checked);
         }
 
+        markUserDirty(currentUserName);
         saveUsers();
 
         const homeIsVisible = homePage?.style.display === "block";
@@ -4534,6 +4888,7 @@
               return;
             }
             user.bio = sanitizeText(newBio).slice(0, 160);
+            markUserDirty(user.username);
             saveUsers();
             openProfile(user.username);
           }
@@ -4649,6 +5004,7 @@
       saveButton.addEventListener("click", () => {
         user.avatarId = selectedAvatarId;
         user.themeId = selectedThemeId;
+        markUserDirty(user.username);
         saveUsers();
         openProfile(user.username);
       });
@@ -4806,6 +5162,8 @@
         }
       }
 
+      markUserDirty(currentUser);
+      markUserDirty(targetUsername);
       saveUsers();
       openProfile(targetUsername);
       renderFriendsPage();
@@ -5382,6 +5740,7 @@
       notifications.forEach((notification) => {
         notification.read = true;
       });
+      markUserDirty(currentUser);
       saveUsers();
       updateNotifBadge();
 
@@ -5460,6 +5819,7 @@
     loadUsers();
     loadPosts();
     removeExpiredPosts();
+    syncWithJSONBin();
 
     const storedUser = sessionStorage.getItem(currentUserKey);
     if (storedUser && users[storedUser]) {
@@ -5851,6 +6211,8 @@
         users[currentUser].conversations[activeChatUser] = conversation;
         users[activeChatUser].conversations[currentUser] = receiverConversation;
 
+        markUserDirty(currentUser);
+        markUserDirty(activeChatUser);
         saveUsers();
         chatInput.value = "";
         renderChatMessages(activeChatUser);
@@ -6016,7 +6378,9 @@
         answered: {},
         reported: [],
         conversations: {},
+        updatedAt: Date.now(),
       };
+      markUserDirty(username);
       saveUsers();
       registerForm.reset();
       toggleForms("loginForm");
