@@ -5222,10 +5222,14 @@
               alert(validation.message);
               return;
             }
-            user.bio = sanitizeText(newBio).slice(0, 160);
-            markUserDirty(user.username);
+            const storedUser = users[user.username];
+            if (!storedUser) {
+              return;
+            }
+            storedUser.bio = sanitizeText(newBio).slice(0, 160);
+            markUserDirty(storedUser.username);
             saveUsers();
-            openProfile(user.username);
+            openProfile(storedUser.username);
           }
         });
 
@@ -5338,11 +5342,15 @@
       saveButton.classList.add("primary-button");
       saveButton.textContent = "Salvar alterações";
       saveButton.addEventListener("click", () => {
-        user.avatarId = selectedAvatarId;
-        user.themeId = selectedThemeId;
-        markUserDirty(user.username);
+        const storedUser = users[user.username];
+        if (!storedUser) {
+          return;
+        }
+        storedUser.avatarId = selectedAvatarId;
+        storedUser.themeId = selectedThemeId;
+        markUserDirty(storedUser.username);
         saveUsers();
-        openProfile(user.username);
+        openProfile(storedUser.username);
       });
 
       customization.appendChild(avatarSection);
