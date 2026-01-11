@@ -760,6 +760,21 @@
       margin-top: 8px;
     }
 
+    .text-post {
+      background: var(--surface-alt-color);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      width: min(520px, 100%);
+    }
+
+    .text-post p {
+      font-size: 16px;
+      line-height: 1.5;
+      margin: 0;
+      white-space: pre-line;
+    }
+
     .post-info {
       display: flex;
       flex-direction: column;
@@ -2476,6 +2491,44 @@
       },
     ];
 
+    const BOT_CONTENT_LIBRARY = {
+      RisoMat: [
+        "Por que o 6 tem medo do 7? Porque 7 8 9 😂",
+        "O zero disse pro oito: “Belo cinto!” 😅",
+        "Matemático vai ao psiquiatra: “Doutor, vejo números em toda parte!” 🤣",
+        "Você sabe por que o livro de matemática ficou triste? Porque tinha muitos problemas. 😜",
+        "Se eu tivesse um real para cada piada de matemática... eu teria infinitos reais! 💸",
+      ],
+      DoutorCalculo: [
+        "Desafio: Qual é o próximo número da sequência 2, 3, 5, 7, 11, ...?",
+        "Curiosidade: 1729 é o número de Hardy-Ramanujan, soma de dois cubos em duas formas diferentes.",
+        "Análise: a soma dos n primeiros números naturais é n(n+1)/2. Útil em otimizações.",
+        "Problema: quantos diagonais tem um polígono de 12 lados?",
+        "Fato: números primos são a base da criptografia moderna.",
+      ],
+      EnigmaNumerico: [
+        "Enigma: Tenho cidades mas não casas, montanhas mas não árvores e água sem peixes. O que sou?",
+        "Sequência misteriosa: 1, 11, 21, 1211, 111221... qual o próximo termo? 🤔",
+        "Sussurro dos números: quando somo meus dígitos, sempre volto a mim. Quem sou?",
+        "Charada: quanto vale o silêncio entre dois números consecutivos?",
+        "Mistério: sou primo, mas também sou a soma de dois quadrados. Quem sou?",
+      ],
+      ArteFractal: [
+        "Observem a beleza do fractal de Mandelbrot... (imaginação ativada) ✨",
+        "Uma curva fractal pode ter comprimento infinito e área zero. Arte nos números!",
+        "ASCII art:\n  *\n * *\n*****\nTriângulo de Pascal estilizado.",
+        "Padrões geométricos são poesia visual. Cada simetria é um verso. 🎨",
+        "Cores e equações dançam juntas — é aí que mora a arte matemática.",
+      ],
+      ProfessoraPi: [
+        "Dica: para multiplicar por 5, multiplique por 10 e divida por 2. 😉",
+        "Sabia que o símbolo ∞ foi popularizado por John Wallis em 1655?",
+        "Regra de três é sua amiga: use-a para resolver proporções do dia a dia.",
+        "Fato: a soma dos ângulos internos de um triângulo é sempre 180°.",
+        "Estudo eficiente: pratique 15 minutos por dia e revise com exemplos.",
+      ],
+    };
+
     function buildBotUser(profile) {
       return {
         passwordHash: "bot",
@@ -2503,7 +2556,69 @@
         isBot: true,
         contentTheme: profile.contentTheme,
         personality: profile.personality,
+        botPostIndex: 0,
       };
+    }
+
+    function getBotContentList(username) {
+      return BOT_CONTENT_LIBRARY[username] || [];
+    }
+
+    function getNextBotContent(username) {
+      const userData = users[username];
+      if (!userData) {
+        return "";
+      }
+      const contents = getBotContentList(username);
+      if (contents.length === 0) {
+        return "";
+      }
+      const currentIndex = Number.isInteger(userData.botPostIndex)
+        ? userData.botPostIndex
+        : 0;
+      const nextContent = contents[currentIndex % contents.length];
+      userData.botPostIndex = (currentIndex + 1) % contents.length;
+      userData.updatedAt = Date.now();
+      markUserDirty(username);
+      return nextContent;
+    }
+
+    function createBotTextPost(username, rawContent, timestamp) {
+      return {
+        id: getNextPostId(),
+        type: "text",
+        author: username,
+        timestamp: timestamp || Date.now(),
+        content: sanitizeText(rawContent).slice(0, 280),
+        likes: [],
+        saves: [],
+        comments: [],
+        isBot: true,
+      };
+    }
+
+    function seedInitialBotPosts() {
+      let updated = false;
+      const baseTime = Date.now();
+
+      BOT_PROFILES.forEach((profile, index) => {
+        const hasPost = posts.some((post) => post.author === profile.username);
+        if (hasPost) {
+          return;
+        }
+        const content = getNextBotContent(profile.username);
+        if (!content) {
+          return;
+        }
+        const post = createBotTextPost(profile.username, content, baseTime + index);
+        posts.unshift(post);
+        updated = true;
+      });
+
+      if (updated) {
+        savePosts();
+        saveUsers();
+      }
     }
 
     function ensureBotUsers() {
@@ -2541,6 +2656,10 @@
         }
         if (!existing.personality) {
           existing.personality = profile.personality;
+          botUpdated = true;
+        }
+        if (!Number.isInteger(existing.botPostIndex)) {
+          existing.botPostIndex = 0;
           botUpdated = true;
         }
         if (botUpdated) {
@@ -2906,6 +3025,13 @@
       return { ok: true };
     }
 
+    function getPostSummary(post, fallback = "seu post") {
+      if (!post) {
+        return fallback;
+      }
+      return post.caption || post.content || post.question || fallback;
+    }
+
     function buildImageSearchUrl(theme) {
       const sanitizedTheme = theme?.trim();
       const encodedTheme = encodeURIComponent(sanitizedTheme || "random");
@@ -3223,6 +3349,15 @@
         img.loading = "lazy";
         applyImageFallback(img);
         content.appendChild(img);
+      }
+
+      if (post.type === "text") {
+        const textContainer = document.createElement("div");
+        textContainer.classList.add("text-post");
+        const text = document.createElement("p");
+        text.textContent = post.content;
+        textContainer.appendChild(text);
+        content.appendChild(textContainer);
       }
 
       if (post.type === "quiz") {
@@ -4870,7 +5005,8 @@
       }
 
       activePostId = postId;
-      commentsSubtitle.textContent = post.type === "quiz" ? post.question : post.caption || "Discussão";
+      commentsSubtitle.textContent =
+        post.type === "quiz" ? post.question : getPostSummary(post, "Discussão");
       commentsContent.innerHTML = "";
 
       const comments = post.comments || [];
@@ -5535,6 +5671,10 @@
           img.loading = "lazy";
           applyImageFallback(img);
           card.appendChild(img);
+        } else if (post.type === "text") {
+          const title = document.createElement("p");
+          title.textContent = post.content;
+          card.appendChild(title);
         } else if (post.type === "quiz") {
           const title = document.createElement("p");
           title.textContent = post.question;
@@ -5912,14 +6052,20 @@
 
         const matchedPosts = visiblePosts.filter((post) => {
           const captionText = (post.caption || "").toLowerCase();
+          const contentText = (post.content || "").toLowerCase();
           const questionText = (post.question || "").toLowerCase();
           const authorText = (post.author || "").toLowerCase();
           if (tagQuery) {
             const tagToken = `#${tagQuery}`;
-            return captionText.includes(tagToken) || questionText.includes(tagToken);
+            return (
+              captionText.includes(tagToken) ||
+              contentText.includes(tagToken) ||
+              questionText.includes(tagToken)
+            );
           }
           return (
             captionText.includes(normalizedQuery) ||
+            contentText.includes(normalizedQuery) ||
             questionText.includes(normalizedQuery) ||
             authorText.includes(normalizedQuery)
           );
@@ -6021,7 +6167,11 @@
       tagsContainer.classList.add("trending-tags");
 
       const hashtagCounts = new Map();
-      const sourceTexts = visiblePosts.flatMap((post) => [post.caption, post.question]);
+      const sourceTexts = visiblePosts.flatMap((post) => [
+        post.caption,
+        post.content,
+        post.question,
+      ]);
 
       sourceTexts.forEach((text) => {
         if (!text) {
@@ -6131,6 +6281,15 @@
         img.loading = "lazy";
         applyImageFallback(img);
         content.appendChild(img);
+      }
+
+      if (post.type === "text") {
+        const textContainer = document.createElement("div");
+        textContainer.classList.add("text-post");
+        const text = document.createElement("p");
+        text.textContent = post.content;
+        textContainer.appendChild(text);
+        content.appendChild(textContainer);
       }
 
       if (post.type === "quiz") {
@@ -6297,13 +6456,13 @@
           if (notification.type === "like") {
             icon.classList.add("fa-solid", "fa-heart");
             const post = posts.find((postItem) => postItem.id === notification.postId);
-            const caption = sanitizeText(post?.caption || post?.question || "seu post");
+            const caption = sanitizeText(getPostSummary(post));
             message = `${fromUser} curtiu seu post: <em>${caption}</em>`;
             item.addEventListener("click", () => openComments(notification.postId));
           } else if (notification.type === "comment") {
             icon.classList.add("fa-regular", "fa-comment");
             const post = posts.find((postItem) => postItem.id === notification.postId);
-            const caption = sanitizeText(post?.caption || post?.question || "seu post");
+            const caption = sanitizeText(getPostSummary(post));
             message = `${fromUser} comentou em seu post: <em>${caption}</em>`;
             item.addEventListener("click", () => openComments(notification.postId));
           } else if (notification.type === "reply") {
@@ -6354,6 +6513,7 @@
     ensureBotUsers();
     loadPosts();
     removeExpiredPosts();
+    seedInitialBotPosts();
     syncWithJSONBin();
 
     const storedUser = sessionStorage.getItem(currentUserKey);
