@@ -2529,6 +2529,34 @@
       ],
     };
 
+    const BOT_COMMENT_LIBRARY = {
+      RisoMat: ["😂😂 boa!", "KKK adorei!", "hahaha", "Essa foi boa 😆"],
+      DoutorCalculo: [
+        "Interessante ponto de vista.",
+        "Vou pensar nisso 🤔",
+        "Boa solução!",
+        "Concordo com a análise.",
+      ],
+      EnigmaNumerico: [
+        "Talvez haja mais do que os olhos podem ver...",
+        "🤨",
+        "Isso me lembra um antigo enigma...",
+        "silêncio enigmático",
+      ],
+      ArteFractal: [
+        "Que legal, visualizo isso como arte!",
+        "Inspirador 💖",
+        "Lindo!",
+        "A criatividade flui aqui.",
+      ],
+      ProfessoraPi: [
+        "Ótima contribuição, parabéns!",
+        "Exatamente, bem explicado.",
+        "Bom exemplo para todos.",
+        "Sempre aprendendo algo novo.",
+      ],
+    };
+
     function buildBotUser(profile) {
       return {
         passwordHash: "bot",
@@ -2558,6 +2586,137 @@
         personality: profile.personality,
         botPostIndex: 0,
       };
+    }
+
+    function getBotUsernames() {
+      return BOT_PROFILES.map((profile) => profile.username).filter(
+        (username) => users[username]?.isBot
+      );
+    }
+
+    function hasUserLiked(post, username) {
+      return post.likes?.includes(username);
+    }
+
+    function addLikeFromUser(post, username) {
+      if (!post.likes) {
+        post.likes = [];
+      }
+      if (hasUserLiked(post, username)) {
+        return false;
+      }
+      post.likes.push(username);
+      addUserPoints(username, 1);
+      if (post.author && post.author !== username) {
+        addUserPoints(post.author, 2);
+      }
+      addNotification(post.author, {
+        type: "like",
+        from: username,
+        postId: post.id,
+      });
+      return true;
+    }
+
+    function getBotCommentOptions(username) {
+      return BOT_COMMENT_LIBRARY[username] || [];
+    }
+
+    function getRandomItem(list) {
+      if (!Array.isArray(list) || list.length === 0) {
+        return "";
+      }
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function shuffleList(list) {
+      const copy = [...list];
+      for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function hasUserCommented(post, username) {
+      return (post.comments || []).some((comment) => comment.author === username);
+    }
+
+    function refreshEngagementUI(postId) {
+      renderFeed();
+      if (discoverPage?.style.display === "block") {
+        renderDiscoverPage();
+      }
+      const friendsPageElement = document.getElementById("friendsPage");
+      if (friendsPageElement?.style.display === "block") {
+        renderFriendsPage();
+      }
+      if (commentsModal.classList.contains("active") && activePostId === postId) {
+        const post = posts.find((item) => item.id === postId);
+        if (post) {
+          renderCommentsContent(post);
+        }
+      }
+    }
+
+    // Simula engajamento dos bots (curtidas e comentários) de forma orgânica.
+    function triggerBotLikes(post) {
+      const botUsernames = getBotUsernames().filter((bot) => bot !== post.author);
+      let liked = false;
+      botUsernames.forEach((bot) => {
+        if (Math.random() < 0.5) {
+          if (addLikeFromUser(post, bot)) {
+            liked = true;
+          }
+        }
+      });
+      if (liked) {
+        savePosts();
+        saveUsers();
+        refreshEngagementUI(post.id);
+      }
+    }
+
+    function scheduleBotComments(post, options = {}) {
+      const authorIsBot = Boolean(users[post.author]?.isBot);
+      const maxComments = options.maxComments ?? (authorIsBot ? 1 : 2);
+      const baseChance = options.baseChance ?? (authorIsBot ? 0.35 : 0.8);
+
+      if (Math.random() > baseChance) {
+        return;
+      }
+
+      const candidates = getBotUsernames().filter(
+        (bot) => bot !== post.author && !hasUserCommented(post, bot)
+      );
+      if (candidates.length === 0) {
+        return;
+      }
+
+      const commentCount = Math.min(
+        candidates.length,
+        maxComments === 1 ? 1 : Math.random() < 0.6 ? 1 : 2
+      );
+      const selected = shuffleList(candidates).slice(0, commentCount);
+
+      selected.forEach((bot, index) => {
+        const message = getRandomItem(getBotCommentOptions(bot));
+        if (!message) {
+          return;
+        }
+        const delay = 2500 + index * 1200 + Math.random() * 1500;
+        window.setTimeout(() => {
+          addCommentFromUser(post.id, bot, message, null, { silent: true });
+          refreshEngagementUI(post.id);
+        }, delay);
+      });
+    }
+
+    function triggerBotEngagement(post, options = {}) {
+      triggerBotLikes(post);
+      if (options.allowComments !== false) {
+        scheduleBotComments(post, options);
+      }
     }
 
     function getBotContentList(username) {
@@ -2613,6 +2772,7 @@
         const post = createBotTextPost(profile.username, content, baseTime + index);
         posts.unshift(post);
         updated = true;
+        triggerBotEngagement(post, { baseChance: 0.35, maxComments: 1 });
       });
 
       if (updated) {
@@ -4850,16 +5010,7 @@
 
       const likeIndex = post.likes.indexOf(currentUser);
       if (likeIndex === -1) {
-        post.likes.push(currentUser);
-        addUserPoints(currentUser, 1);
-        if (post.author && post.author !== currentUser) {
-          addUserPoints(post.author, 2);
-        }
-        addNotification(post.author, {
-          type: "like",
-          from: currentUser,
-          postId,
-        });
+        addLikeFromUser(post, currentUser);
       } else {
         post.likes.splice(likeIndex, 1);
       }
@@ -4998,13 +5149,7 @@
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    function openComments(postId) {
-      const post = posts.find((item) => item.id === postId);
-      if (!post) {
-        return;
-      }
-
-      activePostId = postId;
+    function renderCommentsContent(post) {
       commentsSubtitle.textContent =
         post.type === "quiz" ? post.question : getPostSummary(post, "Discussão");
       commentsContent.innerHTML = "";
@@ -5014,6 +5159,16 @@
       topLevel.forEach((comment) => {
         renderComment(comment, comments);
       });
+    }
+
+    function openComments(postId) {
+      const post = posts.find((item) => item.id === postId);
+      if (!post) {
+        return;
+      }
+
+      activePostId = postId;
+      renderCommentsContent(post);
 
       showModal(commentsModal);
       commentsModal.setAttribute("aria-hidden", "false");
@@ -5056,39 +5211,35 @@
       replies.forEach((reply) => renderComment(reply, allComments, true));
     }
 
-    function postComment(postId, text, parentId = null) {
-      const currentUser = getCurrentUser();
-      if (!currentUser) {
-        notifyLoginRequired("Faça login para comentar.");
-        return;
+    function addCommentFromUser(postId, author, text, parentId = null, options = {}) {
+      const post = posts.find((item) => item.id === postId);
+      if (!post) {
+        return null;
       }
 
       const trimmed = text.trim();
       if (!trimmed) {
-        return;
+        return null;
       }
 
       const validation = validateContent(trimmed);
       if (!validation.ok) {
-        alert(validation.message);
-        return;
-      }
-
-      const post = posts.find((item) => item.id === postId);
-      if (!post) {
-        return;
+        if (!options.silent) {
+          alert(validation.message);
+        }
+        return null;
       }
 
       const comment = {
-        id: `${postId}-${Date.now()}`,
-        author: currentUser,
+        id: `${postId}-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+        author,
         text: sanitizeText(trimmed).slice(0, 200),
         parentId,
         timestamp: Date.now(),
       };
 
       post.comments.push(comment);
-      addUserPoints(currentUser, 2);
+      addUserPoints(author, 2);
       savePosts();
       saveUsers();
 
@@ -5097,20 +5248,42 @@
         if (parentComment) {
           addNotification(parentComment.author, {
             type: "reply",
-            from: currentUser,
+            from: author,
             postId,
           });
         }
       } else {
         addNotification(post.author, {
           type: "comment",
-          from: currentUser,
+          from: author,
           postId,
         });
       }
 
+      return comment;
+    }
+
+    function postComment(postId, text, parentId = null) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        notifyLoginRequired("Faça login para comentar.");
+        return;
+      }
+
+      const comment = addCommentFromUser(postId, currentUser, text, parentId);
+      if (!comment) {
+        return;
+      }
+
       commentInput.value = "";
-      openComments(postId);
+      if (commentsModal.classList.contains("active") && activePostId === postId) {
+        const post = posts.find((item) => item.id === postId);
+        if (post) {
+          renderCommentsContent(post);
+        }
+      } else {
+        openComments(postId);
+      }
       renderFeed();
     }
 
@@ -6647,6 +6820,7 @@
       saveUsers();
       closeCreateModal();
       renderFeed();
+      triggerBotEngagement(post);
     });
 
     formQuiz.addEventListener("submit", (event) => {
@@ -6721,6 +6895,7 @@
       saveUsers();
       closeCreateModal();
       renderFeed();
+      triggerBotEngagement(post);
     });
 
     startGameButton.addEventListener("click", startGame);
@@ -6818,6 +6993,7 @@
       stopActiveGame();
       closeGameOverlay();
       renderFeed();
+      triggerBotEngagement(post);
     });
 
     cancelGameButton.addEventListener("click", () => {
