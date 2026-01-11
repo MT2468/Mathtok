@@ -340,6 +340,33 @@
       opacity: 0.5;
     }
 
+    .help-content {
+      line-height: 1.6;
+      margin: 0 auto;
+      max-width: 720px;
+    }
+
+    .help-content h3 {
+      font-size: 20px;
+      margin: 24px 0 12px;
+    }
+
+    .help-content p,
+    .help-content li {
+      color: var(--muted-text-color);
+      font-size: 14px;
+    }
+
+    .help-content ul {
+      margin-left: 18px;
+    }
+
+    .help-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+
     .content-wrapper {
       margin-left: 0;
     }
@@ -1451,6 +1478,10 @@
         <i class="fa-regular fa-envelope"></i>
         <span>Messages</span>
       </button>
+      <button type="button" aria-label="Help" title="Ajuda">
+        <i class="fa-regular fa-circle-question"></i>
+        <span>Ajuda</span>
+      </button>
       <button type="button" aria-label="Profile" title="Perfil (tecla P)">
         <i class="fa-regular fa-user"></i>
         <span>Profile</span>
@@ -1482,6 +1513,10 @@
       <button type="button" aria-label="Messages" title="Mensagens diretas">
         <i class="fa-regular fa-envelope"></i>
         <span>Messages</span>
+      </button>
+      <button type="button" aria-label="Help" title="Ajuda">
+        <i class="fa-regular fa-circle-question"></i>
+        <span>Ajuda</span>
       </button>
       <button type="button" aria-label="Profile" title="Perfil (tecla P)">
         <i class="fa-regular fa-user"></i>
@@ -1538,6 +1573,53 @@
               </button>
               <button type="submit">Enviar</button>
             </form>
+          </div>
+        </div>
+      </section>
+      <section id="helpPage" class="page">
+        <h2>Ajuda</h2>
+        <div class="help-content">
+          <h3>Sobre o MathTok</h3>
+          <p>
+            O MathTok é uma plataforma de compartilhamento de desafios matemáticos, quizzes e
+            minigames educativos, inspirada em redes sociais de conteúdo curto.
+          </p>
+
+          <h3>Como usar</h3>
+          <p>1. Crie seu perfil ou use o modo visitante para explorar.</p>
+          <p>2. Navegue pelo feed para ver posts, quizzes e gameplays.</p>
+          <p>3. Para publicar, clique no botão de criar e escolha o tipo de conteúdo.</p>
+          <p>4. Interaja curtindo, comentando e salvando seus posts favoritos.</p>
+
+          <h3>Regras da comunidade</h3>
+          <ul>
+            <li>Respeite outras pessoas e mantenha um tom educativo.</li>
+            <li>Não publique conteúdo ofensivo, discriminatório ou dados pessoais.</li>
+            <li>Use os comentários para colaborar e aprender.</li>
+            <li>Denuncie posts impróprios para manter o ambiente seguro.</li>
+          </ul>
+
+          <h3>Perguntas frequentes (FAQ)</h3>
+          <p><strong>P:</strong> Como funcionam os quizzes?</p>
+          <p><strong>R:</strong> As perguntas vêm de uma API externa e são traduzidas para PT-BR.</p>
+          <p><strong>P:</strong> Preciso de internet para jogar?</p>
+          <p><strong>R:</strong> Os minigames funcionam offline, mas novos conteúdos exigem conexão.</p>
+          <p><strong>P:</strong> Meus dados estão seguros?</p>
+          <p>
+            <strong>R:</strong> O MathTok é um protótipo sem backend, com dados locais e
+            sincronização opcional via JSONBin.
+          </p>
+          <p><strong>P:</strong> Quem são os perfis com símbolo de robô?</p>
+          <p>
+            <strong>R:</strong> São agentes de IA do MathTok que ajudam a gerar conteúdo de exemplo.
+          </p>
+
+          <h3>Projeto e contribuição</h3>
+          <p>
+            Este é um projeto educacional open-source. Sugestões e melhorias são bem-vindas!
+          </p>
+          <div class="help-actions">
+            <button class="secondary-button" type="button" id="helpBackButton">Voltar</button>
           </div>
         </div>
       </section>
@@ -1936,6 +2018,7 @@
     const settingsPage = document.getElementById("settingsPage");
     const settingsForm = document.getElementById("settingsForm");
     const settingsBackButton = document.getElementById("settingsBackButton");
+    const helpBackButton = document.getElementById("helpBackButton");
     const conversationList = document.getElementById("conversationList");
     const chatWindow = document.getElementById("chatWindow");
     const chatWith = document.getElementById("chatWith");
@@ -2254,6 +2337,7 @@
         "friendsPage",
         "inboxPage",
         "messagesPage",
+        "helpPage",
         "profilePage",
         "settingsPage",
       ];
@@ -4793,6 +4877,7 @@
         "friendsPage",
         "inboxPage",
         "messagesPage",
+        "helpPage",
         "profilePage",
         "settingsPage",
       ];
@@ -6610,6 +6695,14 @@
     document.querySelectorAll("button[aria-label='Messages']").forEach((button) => {
       button.addEventListener("click", () => showPage("messagesPage"));
     });
+
+    document.querySelectorAll("button[aria-label='Help']").forEach((button) => {
+      button.addEventListener("click", () => showPage("helpPage"));
+    });
+
+    if (helpBackButton) {
+      helpBackButton.addEventListener("click", () => showPage("homePage"));
+    }
 
     document.addEventListener("keydown", (event) => {
       const target = event.target;
