@@ -1966,6 +1966,36 @@
         src:
           "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><circle cx='60' cy='60' r='56' fill='%23ffafcc'/><text x='60' y='72' text-anchor='middle' font-size='52'>❤️</text></svg>",
       },
+      {
+        id: "avatar5",
+        label: "Avatar Sorriso",
+        src:
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><circle cx='60' cy='60' r='56' fill='%23ffd166'/><text x='60' y='72' text-anchor='middle' font-size='52'>😁</text></svg>",
+      },
+      {
+        id: "avatar6",
+        label: "Avatar Lupa",
+        src:
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><circle cx='60' cy='60' r='56' fill='%2396f2d7'/><text x='60' y='72' text-anchor='middle' font-size='52'>🧐</text></svg>",
+      },
+      {
+        id: "avatar7",
+        label: "Avatar Enigma",
+        src:
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><circle cx='60' cy='60' r='56' fill='%238a7ca8'/><text x='60' y='72' text-anchor='middle' font-size='52'>❓</text></svg>",
+      },
+      {
+        id: "avatar8",
+        label: "Avatar Arte",
+        src:
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><circle cx='60' cy='60' r='56' fill='%23ff9f1c'/><text x='60' y='72' text-anchor='middle' font-size='52'>🎨</text></svg>",
+      },
+      {
+        id: "avatar9",
+        label: "Avatar Professor",
+        src:
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><circle cx='60' cy='60' r='56' fill='%239ab7ff'/><text x='60' y='72' text-anchor='middle' font-size='52'>🎓</text></svg>",
+      },
     ];
 
     const THEME_OPTIONS = [
@@ -2397,6 +2427,129 @@
           updated = true;
         }
       });
+      if (updated) {
+        saveUsers();
+      }
+    }
+
+    // Perfis automatizados (bots) para estimular interação na plataforma.
+    const BOT_PROFILES = [
+      {
+        username: "RisoMat",
+        bio: "Adora piadas e memes matemáticos 😁",
+        avatarId: "avatar5",
+        themeId: "sunset",
+        contentTheme: "Humor matemático",
+        personality: "Bem humorado, informal, usa gírias e risadas nos comentários.",
+      },
+      {
+        username: "DoutorCalculo",
+        bio: "Gosta de resolver problemas complexos 🧐",
+        avatarId: "avatar6",
+        themeId: "aurora",
+        contentTheme: "Desafios e análises",
+        personality: "Séria e técnica, escreve de forma objetiva e detalhada.",
+      },
+      {
+        username: "EnigmaNumerico",
+        bio: "Fala por enigmas e adivinhas... 🤔",
+        avatarId: "avatar7",
+        themeId: "ocean",
+        contentTheme: "Enigmas e charadas",
+        personality: "Enigmática, com respostas crípticas em comentários.",
+      },
+      {
+        username: "ArteFractal",
+        bio: "Enxerga arte nos números 🎨",
+        avatarId: "avatar8",
+        themeId: "sunset",
+        contentTheme: "Arte & Matemática",
+        personality: "Inspiradora e emotiva, usa descrições poéticas.",
+      },
+      {
+        username: "ProfessoraPi",
+        bio: "Ama ensinar e compartilhar conhecimento 📚",
+        avatarId: "avatar9",
+        themeId: "aurora",
+        contentTheme: "Dicas educacionais",
+        personality: "Amigável e encorajadora, como uma mentora paciente.",
+      },
+    ];
+
+    function buildBotUser(profile) {
+      return {
+        passwordHash: "bot",
+        bio: profile.bio,
+        private: false,
+        followers: [],
+        following: [],
+        posts: [],
+        favorites: [],
+        preferences: {
+          hideImages: false,
+          hideQuizzes: false,
+          hideGames: false,
+          highContrast: false,
+        },
+        avatarId: profile.avatarId,
+        themeId: profile.themeId,
+        points: 0,
+        isVerified: false,
+        notifications: [],
+        answered: {},
+        reported: [],
+        conversations: {},
+        updatedAt: Date.now(),
+        isBot: true,
+        contentTheme: profile.contentTheme,
+        personality: profile.personality,
+      };
+    }
+
+    function ensureBotUsers() {
+      let updated = false;
+
+      BOT_PROFILES.forEach((profile) => {
+        const existing = users[profile.username];
+        if (!existing) {
+          users[profile.username] = buildBotUser(profile);
+          markUserDirty(profile.username);
+          updated = true;
+          return;
+        }
+
+        let botUpdated = false;
+        if (!existing.isBot) {
+          existing.isBot = true;
+          botUpdated = true;
+        }
+        if (!existing.bio) {
+          existing.bio = profile.bio;
+          botUpdated = true;
+        }
+        if (!existing.avatarId) {
+          existing.avatarId = profile.avatarId;
+          botUpdated = true;
+        }
+        if (!existing.themeId) {
+          existing.themeId = profile.themeId;
+          botUpdated = true;
+        }
+        if (!existing.contentTheme) {
+          existing.contentTheme = profile.contentTheme;
+          botUpdated = true;
+        }
+        if (!existing.personality) {
+          existing.personality = profile.personality;
+          botUpdated = true;
+        }
+        if (botUpdated) {
+          existing.updatedAt = Date.now();
+          markUserDirty(profile.username);
+          updated = true;
+        }
+      });
+
       if (updated) {
         saveUsers();
       }
@@ -6198,6 +6351,7 @@
     applyTheme(storedTheme);
 
     loadUsers();
+    ensureBotUsers();
     loadPosts();
     removeExpiredPosts();
     syncWithJSONBin();
