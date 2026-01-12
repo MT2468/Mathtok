@@ -7053,19 +7053,14 @@
       sessionStorage.setItem(currentUserKey, candidate);
       sessionStorage.removeItem(GUEST_MODE_KEY);
       enterApp();
-      return;
-    }
-
-    if (isGuestMode()) {
+    } else if (isGuestMode()) {
       enterApp();
-      return;
+    } else {
+      if (rememberedUser) {
+        localStorage.removeItem(REMEMBERED_USER_KEY);
+      }
+      showAuthScreen();
     }
-
-    if (rememberedUser) {
-      localStorage.removeItem(REMEMBERED_USER_KEY);
-    }
-
-    showAuthScreen();
 
     document.querySelectorAll(".toggle-auth").forEach((button) => {
       button.addEventListener("click", () => toggleForms(button.dataset.target));
@@ -7420,6 +7415,7 @@
       guestAccessButton.addEventListener("click", () => {
         exitGuestMode();
         enterGuestMode();
+        enterApp();
       });
     }
 
