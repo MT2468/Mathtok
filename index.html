@@ -2381,10 +2381,6 @@
       if (!JSONBIN_ENABLED) {
         return;
       }
-      if (!JSONBIN_API_KEY) {
-        warnSync("Chave do JSONBin ausente. Salvamento remoto desativado.");
-        return;
-      }
       const headers = {
         "Content-Type": "application/json",
         ...(JSONBIN_API_KEY ? { "X-Master-Key": JSONBIN_API_KEY } : {}),
@@ -2932,7 +2928,7 @@
       const nextContent = contents[currentIndex % contents.length];
       userData.botPostIndex = (currentIndex + 1) % contents.length;
       userData.updatedAt = Date.now();
-      markUserDirty(username);
+      markUserDirty(normalizedUsername);
       return nextContent;
     }
 
@@ -3270,6 +3266,11 @@
       return pattern.test(username);
     }
 
+    function getUserKeyByCaseInsensitive(username) {
+      const normalized = username.toLowerCase();
+      return Object.keys(users).find((key) => key.toLowerCase() === normalized) || "";
+    }
+
     async function hashPassword(password) {
       const encoder = new TextEncoder();
       const data = encoder.encode(password);
@@ -3336,7 +3337,6 @@
     function enterGuestMode() {
       sessionStorage.setItem(GUEST_MODE_KEY, "true");
       sessionStorage.setItem(currentUserKey, "guest");
-      localStorage.removeItem(REMEMBERED_USER_KEY);
       enterApp();
     }
 
@@ -5881,7 +5881,7 @@
       }
       normalizeUserPoints(users[username]);
       users[username].points += amount;
-      markUserDirty(username);
+      markUserDirty(normalizedUsername);
     }
 
     function renderSettingsPage() {
@@ -7647,13 +7647,14 @@
       const username = registerForm.registerUser.value.trim();
       const password = registerForm.registerPassword.value;
       const passwordConfirm = registerForm.registerPasswordConfirm.value;
+      const normalizedUsername = username.toLowerCase();
 
-      if (!validateUsername(username)) {
+      if (!validateUsername(normalizedUsername)) {
         showError("Usuário inválido. Use 3-15 caracteres: letras, números ou _.");
         return;
       }
 
-      if (users[username]) {
+      if (getUserKeyByCaseInsensitive(normalizedUsername)) {
         showError("Esse usuário já existe. Escolha outro.");
         return;
       }
@@ -7669,7 +7670,7 @@
       }
 
       const passwordHash = await hashPassword(password);
-      users[username] = {
+      users[normalizedUsername] = {
         passwordHash,
         bio: "",
         private: false,
@@ -7693,7 +7694,7 @@
         conversations: {},
         updatedAt: Date.now(),
       };
-      markUserDirty(username);
+      markUserDirty(normalizedUsername);
       saveUsers();
       registerForm.reset();
       toggleForms("loginForm");
@@ -7719,8 +7720,10 @@
       const password = loginForm.loginPassword.value;
       const rememberMeInput = document.getElementById("rememberMe");
       const shouldRemember = Boolean(rememberMeInput?.checked);
+      const normalizedUsername = username.toLowerCase();
+      const matchedUserKey = getUserKeyByCaseInsensitive(normalizedUsername);
 
-      if (!users[username]) {
+      if (!matchedUserKey) {
         loginFailures += 1;
         showError("Credenciais inválidas.");
         if (loginFailures >= 5) {
@@ -7730,7 +7733,7 @@
       }
 
       const passwordHash = await hashPassword(password);
-      if (users[username].passwordHash !== passwordHash) {
+      if (users[matchedUserKey].passwordHash !== passwordHash) {
         loginFailures += 1;
         showError("Credenciais inválidas.");
         if (loginFailures >= 5) {
@@ -7742,9 +7745,9 @@
       loginFailures = 0;
       exitGuestMode();
       sessionStorage.removeItem(GUEST_MODE_KEY);
-      sessionStorage.setItem(currentUserKey, username);
+      sessionStorage.setItem(currentUserKey, matchedUserKey);
       if (shouldRemember) {
-        localStorage.setItem(REMEMBERED_USER_KEY, username);
+        localStorage.setItem(REMEMBERED_USER_KEY, matchedUserKey);
       } else {
         localStorage.removeItem(REMEMBERED_USER_KEY);
       }
