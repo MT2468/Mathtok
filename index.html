@@ -3214,16 +3214,39 @@
     }
 
     function isGuestMode() {
+      const currentUser = sessionStorage.getItem(currentUserKey);
+      if (currentUser && currentUser !== "guest") {
+        sessionStorage.removeItem(GUEST_MODE_KEY);
+        return false;
+      }
+      if (currentUser === "guest") {
+        return true;
+      }
       return sessionStorage.getItem(GUEST_MODE_KEY) === "true";
     }
 
     function getCurrentUser() {
-      if (isGuestMode()) {
+      const currentUser = sessionStorage.getItem(currentUserKey);
+      if (!currentUser || currentUser === "guest") {
         return null;
       }
-      const currentUser = sessionStorage.getItem(currentUserKey);
-      return currentUser && users[currentUser] ? currentUser : null;
+      if (users[currentUser]) {
+        return currentUser;
+      }
+      sessionStorage.removeItem(currentUserKey);
+      localStorage.removeItem(REMEMBERED_USER_KEY);
+      showAuthScreen();
+      return null;
     }
+
+    // Diagnóstico simples para depuração de autenticação no console.
+    window.debugAuthState = function debugAuthState() {
+      console.log("Auth Debug -> currentUserKey:", sessionStorage.getItem(currentUserKey));
+      console.log("Auth Debug -> GUEST_MODE_KEY:", sessionStorage.getItem(GUEST_MODE_KEY));
+      console.log("Auth Debug -> REMEMBERED_USER_KEY:", localStorage.getItem(REMEMBERED_USER_KEY));
+      console.log("Auth Debug -> isGuestMode():", isGuestMode());
+      console.log("Auth Debug -> getCurrentUser():", getCurrentUser());
+    };
 
     function showAuthScreen() {
       authPage.style.display = "flex";
@@ -6967,17 +6990,25 @@
 
     const storedUser = sessionStorage.getItem(currentUserKey);
     const rememberedUser = localStorage.getItem(REMEMBERED_USER_KEY);
-    const nextUser = storedUser || rememberedUser;
+    const candidate = storedUser || rememberedUser;
+
+    if (candidate && candidate !== "guest" && users[candidate]) {
+      sessionStorage.setItem(currentUserKey, candidate);
+      sessionStorage.removeItem(GUEST_MODE_KEY);
+      enterApp();
+      return;
+    }
 
     if (isGuestMode()) {
       enterApp();
-    } else if (nextUser && users[nextUser]) {
-      sessionStorage.setItem(currentUserKey, nextUser);
-      sessionStorage.removeItem(GUEST_MODE_KEY);
-      enterApp();
-    } else if (rememberedUser) {
+      return;
+    }
+
+    if (rememberedUser) {
       localStorage.removeItem(REMEMBERED_USER_KEY);
     }
+
+    showAuthScreen();
 
     document.querySelectorAll(".toggle-auth").forEach((button) => {
       button.addEventListener("click", () => toggleForms(button.dataset.target));
@@ -7633,6 +7664,7 @@
 
       loginFailures = 0;
       exitGuestMode();
+      sessionStorage.removeItem(GUEST_MODE_KEY);
       sessionStorage.setItem(currentUserKey, username);
       if (shouldRemember) {
         localStorage.setItem(REMEMBERED_USER_KEY, username);
