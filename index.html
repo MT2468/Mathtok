@@ -672,16 +672,27 @@
     .memory-replay-card {
       align-items: center;
       background: #1d2b45;
+      border: 2px solid rgba(255, 255, 255, 0.1);
       border-radius: 10px;
       color: #fff;
       display: flex;
       font-size: 20px;
       height: 48px;
       justify-content: center;
+      position: relative;
     }
 
     .memory-replay-card.is-hidden {
       color: transparent;
+    }
+
+    .memory-replay-card.is-hidden::after {
+      color: #9ad7ff;
+      content: "MT";
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      position: absolute;
     }
 
     .game-canvas.is-hidden {
@@ -1973,8 +1984,8 @@
     // -----------------------------
     // Configuração JSONBin (preencha para habilitar a sincronização)
     // -----------------------------
-    const JSONBIN_BIN_ID = ""; // Ex: "65f123abc..."
-    const JSONBIN_API_KEY = ""; // Ex: "X-Master-Key..."
+    const JSONBIN_BIN_ID = localStorage.getItem("jsonbinBinId") || ""; // Ex: "65f123abc..."
+    const JSONBIN_API_KEY = localStorage.getItem("jsonbinApiKey") || ""; // Ex: "X-Master-Key..."
 
     // -----------------------------
     // Utilidades básicas
@@ -2150,7 +2161,7 @@
     let selectedImageUrl = "";
 
     const JSONBIN_BASE_URL = "https://api.jsonbin.io/v3/b";
-    const JSONBIN_ENABLED = Boolean(JSONBIN_BIN_ID && JSONBIN_API_KEY);
+    const JSONBIN_ENABLED = Boolean(JSONBIN_BIN_ID);
 
     function logSync(message, extra) {
       if (extra !== undefined) {
@@ -2355,10 +2366,9 @@
         logSync("Configuração ausente. Sincronização remota desativada.");
         return null;
       }
+      const headers = JSONBIN_API_KEY ? { "X-Master-Key": JSONBIN_API_KEY } : undefined;
       const response = await fetch(`${JSONBIN_BASE_URL}/${JSONBIN_BIN_ID}/latest`, {
-        headers: {
-          "X-Master-Key": JSONBIN_API_KEY,
-        },
+        headers,
       });
       if (!response.ok) {
         throw new Error(`Falha ao carregar JSONBin (${response.status})`);
@@ -2371,12 +2381,17 @@
       if (!JSONBIN_ENABLED) {
         return;
       }
+      if (!JSONBIN_API_KEY) {
+        warnSync("Chave do JSONBin ausente. Salvamento remoto desativado.");
+        return;
+      }
+      const headers = {
+        "Content-Type": "application/json",
+        ...(JSONBIN_API_KEY ? { "X-Master-Key": JSONBIN_API_KEY } : {}),
+      };
       const response = await fetch(`${JSONBIN_BASE_URL}/${JSONBIN_BIN_ID}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Master-Key": JSONBIN_API_KEY,
-        },
+        headers,
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
