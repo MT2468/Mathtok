@@ -1952,6 +1952,7 @@
         <div class="modal-actions">
           <button class="primary-button" type="button" id="publishGameButton" disabled>Publicar gameplay</button>
           <button class="secondary-button is-hidden" type="button" id="restartGameButton">Tentar novamente</button>
+          <button class="secondary-button" type="button" id="backToGameSelect">Voltar</button>
           <button class="secondary-button" type="button" id="cancelGameButton">Cancelar</button>
           <button class="secondary-button" type="button" id="exitGame">Sair</button>
         </div>
@@ -2106,6 +2107,7 @@
     const gameCanvas = document.getElementById("gameCanvas");
     const flappyCanvas = document.getElementById("flappyCanvas");
     const endlessCanvas = document.getElementById("endlessCanvas");
+    const backToGameSelectButton = document.getElementById("backToGameSelect");
     const memoryGame = document.getElementById("memoryGame");
     const memoryGrid = document.getElementById("memoryGrid");
     const memoryStatus = document.getElementById("memoryStatus");
@@ -4135,9 +4137,7 @@
       gameCanvas.classList.toggle("is-hidden", isFlappy || isEndless || isMemory);
       flappyCanvas.classList.toggle("is-hidden", !isFlappy);
       endlessCanvas.classList.toggle("is-hidden", !isEndless);
-      if (memoryGame) {
-        memoryGame.classList.toggle("is-hidden", !isMemory);
-      }
+      memoryGame?.classList.toggle("is-hidden", !isMemory);
       restartGameButton.classList.toggle("is-hidden", !(isFlappy || isEndless || isMemory));
       restartGameButton.textContent = isMemory ? "Jogar novamente" : "Tentar novamente";
       if (gameModeLabel) {
@@ -4597,7 +4597,7 @@
       // Usamos proporções para manter o jogo consistente em telas menores.
       const groundRatio = 0.82;
       const runnerSizeRatio = 0.06;
-      const obstacleWidthRatio = 0.05;
+      const obstacleWidthRatio = 0.03;
       const gravityRatio = 0.0028;
       const jumpPowerRatio = -0.035;
       const baseSpeedRatio = 0.005;
@@ -4617,8 +4617,8 @@
       const baseSpeed = endlessCanvas.width * baseSpeedRatio;
       const speedGrowth = endlessCanvas.width * speedGrowthRatio;
       const maxSpeed = endlessCanvas.width * maxSpeedRatio;
-      const baseSpawnDelay = 1300;
-      const spawnVariance = 1200;
+      const baseSpawnDelay = 1500;
+      const spawnVariance = 1400;
       const obstacles = [];
       const inputs = [];
       const spawnEvents = [];
@@ -7359,6 +7359,15 @@
       stopActiveGame();
       closeGameOverlay();
     });
+
+    if (backToGameSelectButton) {
+      backToGameSelectButton.addEventListener("click", () => {
+        stopActiveGame();
+        closeGameOverlay();
+        openCreateModal();
+        setActiveForm("formGame");
+      });
+    }
 
     exitGameButton.addEventListener("click", () => {
       stopActiveGame();
