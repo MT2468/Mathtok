@@ -3636,7 +3636,13 @@
       selectedGameType = type;
       if (gameModeLabel) {
         const label =
-          type === "flappy" ? "Flappy Bird" : type === "endless" ? "Corrida Infinita" : "Corrida";
+          type === "flappy"
+            ? "Flappy Bird"
+            : type === "endless"
+              ? "Corrida Infinita"
+              : type === "memory"
+                ? "Memória"
+              : "Corrida";
         gameModeLabel.textContent = `Jogo selecionado: ${label}`;
       }
       if (gameSelector) {
