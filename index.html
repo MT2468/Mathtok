@@ -539,14 +539,6 @@
       flex: 1;
     }
 
-    .post.fullscreen .post-info {
-      margin-top: auto;
-    }
-
-    .post.fullscreen .post-actions {
-      margin-bottom: 8px;
-    }
-
     .post-content {
       align-items: center;
       display: flex;
@@ -779,6 +771,25 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      left: 12px;
+      max-width: 70%;
+      position: absolute;
+      bottom: 12px;
+      z-index: 4;
+    }
+
+    .post-info::before {
+      background: linear-gradient(
+        180deg,
+        rgba(0, 0, 0, 0) 0%,
+        rgba(0, 0, 0, 0.35) 45%,
+        rgba(0, 0, 0, 0.6) 100%
+      );
+      border-radius: 14px;
+      content: "";
+      inset: -10px -12px;
+      position: absolute;
+      z-index: -1;
     }
 
     .post-author {
@@ -788,9 +799,14 @@
     }
 
     .post-actions {
+      position: absolute;
+      right: 12px;
+      bottom: calc(96px + env(safe-area-inset-bottom));
       display: flex;
-      gap: 18px;
+      flex-direction: column;
       align-items: center;
+      gap: 14px;
+      z-index: 5;
     }
 
     .action-button {
@@ -805,6 +821,39 @@
 
     .action-button i {
       font-size: 18px;
+    }
+
+    .post-actions .action-button {
+      align-items: center;
+      backdrop-filter: blur(6px);
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      justify-content: center;
+      min-height: 52px;
+      min-width: 52px;
+      padding: 8px 10px;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .post-actions .action-button:hover {
+      transform: scale(1.05);
+    }
+
+    .post-actions .action-button:active {
+      transform: scale(0.97);
+    }
+
+    .post-actions .action-button i {
+      font-size: 20px;
+    }
+
+    .post-actions .action-button span {
+      font-size: 12px;
+      opacity: 0.9;
     }
 
     .action-button.liked i {
@@ -826,6 +875,14 @@
 
     .action-button.saved i {
       color: #ffd166;
+    }
+
+    @media (min-width: 900px) {
+      .post-actions {
+        top: 50%;
+        bottom: auto;
+        transform: translateY(-50%);
+      }
     }
 
     .comments-content {
@@ -3939,9 +3996,9 @@
         actions.appendChild(reportButton);
       }
 
+      content.appendChild(info);
+      content.appendChild(actions);
       postElement.appendChild(content);
-      postElement.appendChild(info);
-      postElement.appendChild(actions);
       return postElement;
     }
 
@@ -6872,9 +6929,9 @@
         actions.appendChild(reportButton);
       }
 
+      content.appendChild(info);
+      content.appendChild(actions);
       postElement.appendChild(content);
-      postElement.appendChild(info);
-      postElement.appendChild(actions);
       return postElement;
     }
 
